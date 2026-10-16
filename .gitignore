@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editor and OS
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Temporary review/render files
+tmp/

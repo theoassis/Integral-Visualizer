@@ -91,22 +91,24 @@ Marque conforme forem implementados **e passando**.
 
 ## Dependências adicionadas
 
-| Pacote                                        | Versão                    | Motivo                                                        | Licença    |
-| --------------------------------------------- | ------------------------- | ------------------------------------------------------------- | ---------- |
-| Three.js                                      | 0.186.1                   | Malha e renderização 3D para o protótipo F0-T3                | MIT        | `n  | @types/three | 0.185.4 | Tipos TypeScript para Three.js | MIT | `n  | React / React DOM.*$ |
-| Vite / plugin React                           | 8.3.4 / 6.1.2             | Servidor, build e integração React                            | MIT        |
-| TypeScript                                    | 5.9.3                     | Tipagem estrita; compatibilidade com typescript-eslint 8.71.2 | Apache-2.0 |
-| ESLint / @eslint/js                           | 10.12.0 / 10.0.1          | Análise estática                                              | MIT        |
-| typescript-eslint                             | 8.71.2                    | Regras e parser TypeScript para ESLint                        | MIT        |
-| eslint-plugin-react-hooks / globals           | 7.1.1 / 16.5.0            | Regras React e globais do navegador no lint                   | MIT        |
-| Prettier                                      | 3.9.10                    | Formatação uniforme                                           | MIT        |
-| Vitest / jsdom                                | 5.0.4 / 27.4.0            | Base de testes unitários e DOM simulado                       | MIT        |
-| Husky / lint-staged                           | 9.1.7 / 16.4.0            | Verificações locais em arquivos staged                        | MIT        |
-| @types/react / @types/react-dom / @types/node | 19.3.0 / 19.3.0 / 24.19.2 | Tipos das dependências e configs                              | MIT        |
+| Pacote                                        | Versão              | Motivo                                         | Licença    |
+| --------------------------------------------- | ------------------- | ---------------------------------------------- | ---------- |
+| Three.js                                      | 0.186.1             | Malha e renderização 3D para o protótipo F0-T3 | MIT        |
+| @types/three                                  | 0.185.4             | Tipos TypeScript para Three.js                 | MIT        |
+| React / React DOM                             | 19.3.1              | Interface da aplicação                         | MIT        |
+| Vite / plugin React                           | 8.3.4 / 6.1.2       | Servidor, build e integração React             | MIT        |
+| TypeScript                                    | 5.9.3               | Tipagem estrita                                | Apache-2.0 |
+| ESLint / @eslint/js                           | 10.12.0 / 10.0.1    | Análise estática                               | MIT        |
+| typescript-eslint                             | 8.71.2              | Regras e parser TypeScript para ESLint         | MIT        |
+| eslint-plugin-react-hooks / globals           | 7.1.1 / 16.5.0      | Regras React e globais do navegador            | MIT        |
+| Prettier                                      | 3.9.10              | Formatação uniforme                            | MIT        |
+| Vitest / jsdom                                | 5.0.4 / 27.4.0      | Base de testes unitários e DOM simulado        | MIT        |
+| Husky / lint-staged                           | 9.1.7 / 16.4.0      | Verificações locais em arquivos staged         | MIT        |
+| @types/react / @types/react-dom / @types/node | versões no lockfile | Tipos das dependências e configs               | MIT        |
 
 ## Problemas conhecidos / dívida técnica
 
-- (nenhum ainda)
+- O build gera um chunk inicial de 781,95 kB minificado devido ao Three.js; reavaliar divisão de código quando a aplicação crescer.
 
 ## Ideias para o backlog (não implementar agora)
 

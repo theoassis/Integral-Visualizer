@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 0 — Preparação
-- **Tarefa atual:** F0-T3 — protótipo hello surface (próxima tarefa da Fase 0)
+- **Tarefa atual:** F0-T3 — protótipo hello surface (aguardando revisão matemática)
 - **Última sessão:** 2026-10-16
-- **Estado dos testes:** não executados nesta sessão (a suíte ainda não foi criada)
-- **Estado do build/tipos:** `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos sem erros segundo captura enviada pelo usuário; CI indicado como verde pelo usuário, sem verificação independente nesta sessão
-- **Último commit:** `docs: registra ADRs da F0-T2`
+- **Estado dos testes:** não executados nesta sessão; não foram criados testes para o protótipo descartável
+- **Estado do build/tipos:** nesta sessão, `pnpm lint` e `pnpm typecheck` concluíram sem erros; `pnpm build` concluiu com aviso de chunk inicial de 781,95 kB após minificação
+- **Último commit:** `feat: cria protótipo de superfície tridimensional`
 
 ## Painel de fases
 
@@ -35,7 +35,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
 | F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos segundo captura do usuário; CI informado como verde pelo usuário |
 | F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`                                                                        |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ⬜     |                                                                                                                          |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | 🟨     | Cena implementada e servida localmente; aguardando o revisor conferir orientação e comportamento visual                  |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -93,7 +93,7 @@ Marque conforme forem implementados **e passando**.
 
 | Pacote                                        | Versão                    | Motivo                                                        | Licença    |
 | --------------------------------------------- | ------------------------- | ------------------------------------------------------------- | ---------- |
-| React / React DOM                             | 19.3.1                    | Interface da aplicação                                        | MIT        |
+| Three.js                                      | 0.186.1                   | Malha e renderização 3D para o protótipo F0-T3                | MIT        | `n  | @types/three | 0.185.4 | Tipos TypeScript para Three.js | MIT | `n  | React / React DOM.*$ |
 | Vite / plugin React                           | 8.3.4 / 6.1.2             | Servidor, build e integração React                            | MIT        |
 | TypeScript                                    | 5.9.3                     | Tipagem estrita; compatibilidade com typescript-eslint 8.71.2 | Apache-2.0 |
 | ESLint / @eslint/js                           | 10.12.0 / 10.0.1          | Análise estática                                              | MIT        |
@@ -133,3 +133,12 @@ Marque conforme forem implementados **e passando**.
 - **Verificações:** não executei testes nesta sessão. Lint, tipos e build foram reportados pelo usuário como concluídos sem erros; CI foi indicado como verde pelo usuário.
 - **Não verificado nesta sessão:** não reexecutei os comandos de qualidade nem abri a execução do CI.
 - **Próximo passo:** F0-T3, protótipo descartável `z = sin(x)·cos(y)` com câmera Z-up; parar para revisão do usuário antes de avançar.
+
+### Sessão 2
+
+- **Data:** 2026-10-16
+- **Tarefa:** F0-T3 — protótipo descartável da superfície `z = sin(x)·cos(y)`.
+- **Feito:** adicionados Three.js e tipos; criada malha em `[-π, π]²`, câmera com `up = (0,0,1)`, `OrbitControls`, eixos coloridos, grade no plano `xy`, rotação automática pausável e indicação da faixa `[-1,1]`.
+- **Verificações:** `pnpm lint` sem avisos; `pnpm typecheck` sem erros; `pnpm build` concluído (20 módulos transformados; chunk de 781,95 kB gerou aviso do Vite). Não executei testes.
+- **Não verificado:** não fiz inspeção visual independente da prévia; o usuário deve conferir no navegador se a orientação e a forma da superfície correspondem ao esperado. CI deste commit ainda não foi executado.
+- **Próximo passo:** revisão matemática da Fase 0 pelo usuário. Conferir picos/vales esperados de `sin(x)·cos(y)` e que o eixo Z permanece vertical ao orbitar; não iniciar a Fase 1 sem aprovação.

@@ -112,7 +112,7 @@ Marque conforme forem implementados **e passando**.
 
 ## Ideias para o backlog (não implementar agora)
 
-- (nenhuma ainda)
+- Tutor matemático passo a passo: receber exercícios de cálculo e equações, identificar um método dentro do escopo suportado, gerar uma sequência de transformações matemáticas verificáveis e explicar cada etapa em pt-BR. Arquitetura futura híbrida: algoritmos/CAS produzem e validam os passos; a camada de IA adapta a explicação e conduz a aprendizagem; a interface relaciona cada etapa às mudanças na visualização. Começar por tópicos delimitados (derivadas e pontos críticos, integrais e EDOs); deixar resolução neural de EDPs/PINNs para uma etapa posterior, com condições de contorno e estimativa de erro. Ideia registrada em 2026-10-16; não altera o escopo da F0-T3.
 
 ## Log de sessões
 

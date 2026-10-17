@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 0 — Preparação
-- **Tarefa atual:** F0-T1 — scaffolding, lint, formatação e CI (em andamento)
-- **Última sessão:** 2026-10-15
+- **Tarefa atual:** F0-T3 — protótipo hello surface (próxima tarefa da Fase 0)
+- **Última sessão:** 2026-10-16
 - **Estado dos testes:** não executados nesta sessão (a suíte ainda não foi criada)
-- **Estado do build/tipos:** não executados; `pnpm peers check` confirmou que não há peer dependencies pendentes; lint, tipos, build e CI ainda não foram rodados
-- **Último commit:** —
+- **Estado do build/tipos:** `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos sem erros segundo captura enviada pelo usuário; CI indicado como verde pelo usuário, sem verificação independente nesta sessão
+- **Último commit:** `docs: registra ADRs da F0-T2`
 
 ## Painel de fases
 
@@ -31,11 +31,11 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 
 ## Tarefas da fase atual
 
-| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                                      |
-| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F0-T1 | Scaffolding, lint, formatação, CI                          | 🟨     | Base de Vite/React/TS, configurações do VS Code, ESLint, Prettier e CI adicionadas; dependências instaladas; falta confirmar lint/tipos/build/CI |
-| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ⬜     |                                                                                                                                                  |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ⬜     |                                                                                                                                                  |
+| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                              |
+| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos segundo captura do usuário; CI informado como verde pelo usuário |
+| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`                                                                        |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ⬜     |                                                                                                                          |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -78,16 +78,16 @@ Marque conforme forem implementados **e passando**.
 
 ## Ambiguidades e riscos encontrados na leitura inicial
 
-- **Segurança do parser:** a seção 9 do plano propõe compilar com `new Function` após validar a AST; a seção 17 manda nunca usar `eval`/`new Function`, e `CLAUDE.md` proíbe texto não validado. Resolver a política no ADR de stack/segurança antes do parser (F1-T2). A amostra de codegen também consulta mapas comuns com `in`, que pode aceitar nomes herdados; usar mapas sem protótipo ou checagem de propriedade própria.
+- **Segurança do parser:** a divergência entre as seções 9 e 17 do plano foi resolvida no ADR-001 em favor de interpretar uma AST com lista branca, sem `eval`/`new Function`. Na implementação F1-T2, ainda será necessário validar cada nó e impedir propriedades herdadas.
 - **Escopo da Fase 2:** a tarefa F2-T2 pede A1–A3 e descreve integral retangular; a tabela de roadmap inclui A1–A4, mas A4 é integral polar e aparece de novo na Fase 3. Confirmar a fase de A4 ao detalhar tarefas.
 - **Rótulos “inferior/superior”:** a amostragem proposta não certifica o ínfimo/supremo da função em cada célula, portanto o critério de revisão atual é mais forte que o método descrito.
 - **Compatibilidade de ferramentas:** TypeScript 7.0.2 não atendia ao peer range do `typescript-eslint` 8.71.2. A base usa TypeScript 5.9.3, dentro do peer range publicado.
 
 ## Decisões tomadas (ADR resumido)
 
-| Data | Decisão | Motivo | Aprovada por |
-| ---- | ------- | ------ | ------------ |
-|      |         |        |              |
+| Data       | Decisão                                                        | Motivo                                                                                 | Aprovada por     |
+| ---------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------- |
+| 2026-10-16 | Stack, convenções matemáticas e estado serializável versionado | Registradas nos ADRs; política do parser alinhada à lista branca sem execução dinâmica | Plano do projeto |
 
 ## Dependências adicionadas
 
@@ -123,4 +123,13 @@ Marque conforme forem implementados **e passando**.
 - **Feito:** leitura integral do plano de 49 páginas e dos quatro documentos do ZIP; criação da estrutura inicial para Vite, React, TypeScript, VS Code, lint/formatação, Vitest e CI; cópia dos documentos de referência para o repositório; instalação de dependências e geração do lockfile.
 - **Testes:** não executados (a suíte ainda não foi criada).
 - **Não verificado:** lint, tipos, testes, build, CI e cena 3D. O peer check foi repetido após a resolução e não apontou incompatibilidades.
-- **Próximo passo:** fazer as verificações da F0-T1 quando solicitadas; depois iniciar F0-T2, um ADR por decisão, conforme o plano.
+- **Próximo passo:** terminar as verificações da F0-T1; depois iniciar F0-T2.
+
+### Sessão 1
+
+- **Data:** 2026-10-16
+- **Tarefa:** F0-T2 — ADRs de stack, convenções matemáticas e formato do estado.
+- **Feito:** criados os três ADRs; a política segura para interpretar expressões foi registrada; atualizadas a matriz de tarefas e as decisões.
+- **Verificações:** não executei testes nesta sessão. Lint, tipos e build foram reportados pelo usuário como concluídos sem erros; CI foi indicado como verde pelo usuário.
+- **Não verificado nesta sessão:** não reexecutei os comandos de qualidade nem abri a execução do CI.
+- **Próximo passo:** F0-T3, protótipo descartável `z = sin(x)·cos(y)` com câmera Z-up; parar para revisão do usuário antes de avançar.

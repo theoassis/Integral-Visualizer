@@ -7,10 +7,10 @@
 
 - **Fase atual:** 0 — Preparação
 - **Tarefa atual:** F0-T3 — protótipo hello surface (aguardando revisão matemática)
-- **Última sessão:** 2026-10-16
-- **Estado dos testes:** não executados nesta sessão; não foram criados testes para o protótipo descartável
-- **Estado do build/tipos:** nesta sessão, `pnpm lint` e `pnpm typecheck` concluíram sem erros; `pnpm build` concluiu com aviso de chunk inicial de 781,95 kB após minificação
-- **Último commit:** `feat: cria protótipo de superfície tridimensional`
+- **Última sessão:** 2026-10-18
+- **Estado dos testes:** não executados nesta sessão
+- **Estado do build/tipos:** `pnpm lint` e `pnpm build` concluíram sem erros; build avisou que o chunk inicial tem 787,01 kB após minificação
+- **Último commit:** `feat: mostra análise matemática interativa`
 
 ## Painel de fases
 
@@ -31,11 +31,11 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 
 ## Tarefas da fase atual
 
-| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                              |
-| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
-| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos segundo captura do usuário; CI informado como verde pelo usuário |
-| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`                                                                        |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | 🟨     | Cena implementada e servida localmente; aguardando o revisor conferir orientação e comportamento visual                  |
+| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                  |
+| ----- | ---------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos segundo captura do usuário; CI informado como verde pelo usuário     |
+| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`                                                                            |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | 🟨     | Cena com marcadores de extremos/selas, campo do gradiente opcional e painel de análise; aguardando revisão visual/matemática |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -144,3 +144,12 @@ Marque conforme forem implementados **e passando**.
 - **Verificações:** `pnpm lint` sem avisos; `pnpm typecheck` sem erros; `pnpm build` concluído (20 módulos transformados; chunk de 781,95 kB gerou aviso do Vite). Não executei testes.
 - **Não verificado:** não fiz inspeção visual independente da prévia; o usuário deve conferir no navegador se a orientação e a forma da superfície correspondem ao esperado. CI deste commit ainda não foi executado.
 - **Próximo passo:** revisão matemática da Fase 0 pelo usuário. Conferir picos/vales esperados de `sin(x)·cos(y)` e que o eixo Z permanece vertical ao orbitar; não iniciar a Fase 1 sem aprovação.
+
+### Sessão 3
+
+- **Data:** 2026-10-18
+- **Tarefa:** ampliar a visualização matemática da superfície de exemplo.
+- **Feito:** controles para mostrar/ocultar a análise, os pontos críticos e o campo do gradiente; máximos, mínimos e selas destacados por cor; painel com gradiente, teste da Hessiana e relação `Δf + 2f = 0`. As setas mostram a direção de subida sobre a superfície e têm comprimento proporcional a `|∇f|`.
+- **Verificações:** `pnpm lint` passou; `pnpm build` passou (20 módulos transformados), com o aviso existente de chunk grande, agora 787,01 kB minificado. `pnpm typecheck` isolado foi bloqueado pela permissão de escrita no cache do TypeScript; o build executou `tsc -b` e passou. Testes não executados.
+- **Não verificado:** inspeção visual manual no navegador e revisão matemática do usuário para os novos marcadores e vetores.
+- **Próximo passo:** usuário conferir a exibição dos extremos/selas e do gradiente no navegador; manter a Fase 0 aberta até a revisão matemática.

@@ -241,6 +241,99 @@ button {
   color: #788298;
   font-size: 0.66rem;
 }
+.math-analysis {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #202636;
+}
+.analysis-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.details-toggle {
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  color: #a8bcff;
+  cursor: pointer;
+  font-size: 0.65rem;
+}
+.details-toggle:hover {
+  color: #d4dcff;
+}
+.math-details {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+.detail-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #c4cbda;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.detail-option input {
+  accent-color: #9db1ff;
+}
+.legend-dot {
+  display: inline-block;
+  width: 0.48rem;
+  height: 0.48rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+.critical-max {
+  background: #ff718b;
+}
+.critical-min {
+  background: #51d9b2;
+}
+.critical-saddle {
+  background: #f5d465;
+}
+.gradient-dot {
+  background: #f5d465;
+}
+.critical-summary,
+.derivative-summary {
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #242b3b;
+  border-radius: 0.65rem;
+  background: rgb(15 20 34 / 75%);
+}
+.critical-summary p,
+.derivative-summary p {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0;
+  color: #aeb7ca;
+  font-size: 0.63rem;
+  line-height: 1.5;
+}
+.critical-summary code,
+.derivative-summary code {
+  color: #dce4ff;
+  font-family: 'DM Mono', ui-monospace, monospace;
+}
+.critical-summary .coordinates {
+  display: block;
+  margin: 0 0 0.5rem 0.9rem;
+  color: #808ba3;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 0.58rem;
+}
+.derivative-summary p {
+  display: block;
+}
+.derivative-summary strong {
+  color: #dce4ff;
+}
 .rotate-button {
   display: inline-flex;
   align-items: center;
@@ -357,6 +450,7 @@ button {
   .panel-description,
   .axis-section,
   .range-note,
+  .math-analysis,
   .interaction-hint {
     grid-column: 1 / -1;
   }

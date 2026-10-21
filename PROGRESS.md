@@ -199,3 +199,21 @@ Marque conforme forem implementados **e passando**.
   - Prévia WebGL no navegador: a cena e os passos matemáticos foram visualmente conferidos; os modos de viewport 1440, 1160, 800 e 480 px não apresentaram overflow horizontal. O controle do gradiente e a navegação entre passos responderam como esperado.
 - **Não verificado:** desempenho em aparelho móvel físico ou GPU restrita; CI remoto.
 - **Próximo passo:** F1-T2 — parser seguro de expressões, seguindo a lista branca e os testes exigidos no plano.
+
+### Sessão 6
+
+- **Data:** 2026-10-20
+- **Tarefa:** F1-T2 — parser seguro de expressões.
+- **Feito:**
+  1. Adicionado math.js 15.2.0 para analisar a entrada e produzir a árvore sintática (AST). A aplicação não usa o avaliador nem o compilador dinâmico do math.js: percorre a AST e interpreta somente números, variáveis, `pi`, `e`, parênteses, operações `+`, `−`, `×`, `÷`, potência e funções autorizadas.
+  2. Implementada a lista branca de funções e aliases (`sen` → `sin`, `tg` → `tan`), validação de aridade, multiplicação implícita de variáveis de uma letra (`xy` = `x·y`) e descoberta ordenada dos parâmetros livres.
+  3. Adicionados limites de tamanho e complexidade, rejeição de atribuições, acessos a propriedades e nós não permitidos, leitura de variáveis somente por propriedade própria e erros de sintaxe/avaliação claros em pt-BR.
+  4. Criados testes para valores de referência, precedência, funções, parâmetros, entradas inválidas e uma bateria determinística de tentativas de acesso/execução fora da lista branca.
+- **Verificações executadas:**
+  - `pnpm lint`: passou sem erros ou avisos.
+  - `pnpm typecheck`: passou.
+  - `pnpm test`: 45 testes passaram em 2 arquivos (8 anteriores + 37 novos; 0 falhas).
+  - `pnpm format:check`: passou.
+  - `pnpm build`: passou; permaneceu o aviso conhecido de bundle JavaScript acima de 500 kB (830,62 kB minificado).
+- **Não verificado:** análise formal de segurança do math.js; a bateria de entradas hostis é determinística, não uma prova de segurança. A integração do parser ao campo de fórmula e à superfície pertence à F1-T3.
+- **Próximo passo:** F1-T3 — campo de fórmula e superfície no thread principal, com tratamento de NaN/∞.

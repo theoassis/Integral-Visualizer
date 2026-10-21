@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   AmbientLight,
   ArrowHelper,
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
   Color,
+  CylinderGeometry,
   DirectionalLight,
   DoubleSide,
   Group,
@@ -12,37 +14,164 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
+  OctahedronGeometry,
   PerspectiveCamera,
+  Raycaster,
   Scene,
+  ShaderMaterial,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  TorusGeometry,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import type { CriticalPointData, VisualizableFunction } from '../core/functions/types'
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface PointInfo {
+  x: number
+  y: number
+  z: number
+  gradient?: [number, number]
+  gradientMagnitude?: number
+  criticalPoint?: CriticalPointData
+  screenX: number
+  screenY: number
+}
 
 interface HelloSurfaceProps {
+  func: VisualizableFunction
   autoRotate: boolean
   showCriticalPoints: boolean
   showGradient: boolean
+  showGrid: boolean
+  showAxes: boolean
+  highlightedElement?: 'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
+  onPointHover?: (info: PointInfo | null) => void
 }
 
-const DOMAIN_MIN = -Math.PI
-const DOMAIN_MAX = Math.PI
-const SEGMENTS = 88
+/* ------------------------------------------------------------------ */
+/*  Constants & Color Palette                                          */
+/* ------------------------------------------------------------------ */
+
+const SEGMENTS = 96
+const REDUCED_MOTION =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const BG_COLOR = '#0c1116'
+const GRID_COLOR = '#283139'
+const AXIS_X_COLOR = '#d79c9d'
+const AXIS_Y_COLOR = '#8bb6a2'
+const AXIS_Z_COLOR = '#a9bfd0'
+const SURFACE_PALETTE = [
+  new Color('#34475f'),
+  new Color('#63858d'),
+  new Color('#9eb4a8'),
+  new Color('#dbc18d'),
+]
+
+/* ------------------------------------------------------------------ */
+/*  Shader for smooth, cinematic surface formation                     */
+/* ------------------------------------------------------------------ */
+
+const SURFACE_VERTEX_SHADER = `
+  attribute vec3 color;
+  uniform float uProgress;
+  uniform float uTime;
+  varying vec3 vColor;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+
+  void main() {
+    vColor = color;
+    vNormal = normalize(normalMatrix * normal);
+
+    vec3 pos = position;
+    // Radial formation wave expanding smoothly from center
+    float dist = length(pos.xy) / 4.4;
+    float wave = smoothstep(dist - 0.2, dist + 0.1, uProgress);
+    pos.z *= wave;
+
+    vPosition = pos;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`
+
+const SURFACE_FRAGMENT_SHADER = `
+  varying vec3 vColor;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  uniform float uProgress;
+  uniform float uHighlight;
+
+  void main() {
+    // Elegant two-point studio lighting with rim
+    vec3 keyDir = normalize(vec3(-0.4, -0.6, 1.0));
+    vec3 fillDir = normalize(vec3(0.6, 0.4, 0.5));
+    vec3 rimDir = normalize(vec3(0.0, 0.8, -0.3));
+
+    float keyDiff = max(dot(vNormal, keyDir), 0.0);
+    float fillDiff = max(dot(vNormal, fillDir), 0.0);
+    float rim = pow(1.0 - max(dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0), 2.5);
+
+    vec3 litColor = vColor * (0.38 + keyDiff * 0.52 + fillDiff * 0.22) + vec3(0.12, 0.16, 0.28) * rim * 0.45;
+
+    // Subtle highlight pulse when focusing on surface
+    if (uHighlight > 0.01) {
+      litColor += vec3(0.12, 0.16, 0.28) * uHighlight;
+    }
+
+    float alpha = smoothstep(0.0, 0.2, uProgress);
+    gl_FragColor = vec4(litColor, alpha);
+  }
+`
+
+/* ------------------------------------------------------------------ */
+/*  HelloSurface Component                                             */
+/* ------------------------------------------------------------------ */
 
 export default function HelloSurface({
+  func,
   autoRotate,
   showCriticalPoints,
   showGradient,
+  showGrid,
+  showAxes,
+  highlightedElement,
+  onPointHover,
 }: HelloSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
   const autoRotateRef = useRef(autoRotate)
   const criticalPointsVisibleRef = useRef(showCriticalPoints)
   const gradientVisibleRef = useRef(showGradient)
+  const gridVisibleRef = useRef(showGrid)
+  const axesVisibleRef = useRef(showAxes)
   const criticalPointsRef = useRef<Group | null>(null)
   const gradientRef = useRef<Group | null>(null)
+  const gridRef = useRef<LineSegments | null>(null)
+  const axesRef = useRef<Group | null>(null)
+  const surfaceMeshRef = useRef<Mesh | null>(null)
+  const surfaceMaterialRef = useRef<ShaderMaterial | null>(null)
+  const onPointHoverRef = useRef(onPointHover)
+  const funcRef = useRef(func)
+
+  useEffect(() => {
+    funcRef.current = func
+  }, [func])
+
+  useEffect(() => {
+    onPointHoverRef.current = onPointHover
+  }, [onPointHover])
 
   useEffect(() => {
     autoRotateRef.current = autoRotate
@@ -60,8 +189,106 @@ export default function HelloSurface({
 
   useEffect(() => {
     gradientVisibleRef.current = showGradient
-    if (gradientRef.current) gradientRef.current.visible = showGradient
+    if (gradientRef.current) {
+      gradientRef.current.visible = showGradient
+    }
   }, [showGradient])
+
+  useEffect(() => {
+    gridVisibleRef.current = showGrid
+    if (gridRef.current) {
+      gridRef.current.visible = showGrid
+    }
+  }, [showGrid])
+
+  useEffect(() => {
+    axesVisibleRef.current = showAxes
+    if (axesRef.current) {
+      axesRef.current.visible = showAxes
+    }
+  }, [showAxes])
+
+  useEffect(() => {
+    if (surfaceMaterialRef.current) {
+      const uHighlight = surfaceMaterialRef.current.uniforms['uHighlight']
+      if (uHighlight) {
+        uHighlight.value = highlightedElement === 'surface' ? 0.35 : 0.0
+      }
+    }
+  }, [highlightedElement])
+
+  const handleCanvasEvent = useCallback(
+    (
+      event: MouseEvent,
+      camera: PerspectiveCamera,
+      renderer: WebGLRenderer,
+      surfaceMesh: Mesh,
+      criticalGroup: Group,
+    ) => {
+      if (!onPointHoverRef.current) return
+
+      const rect = renderer.domElement.getBoundingClientRect()
+      const mouse = new Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      )
+
+      const raycaster = new Raycaster()
+      raycaster.setFromCamera(mouse, camera)
+
+      // 1. Raycast critical points with high priority
+      if (criticalPointsVisibleRef.current) {
+        const criticalHits = raycaster.intersectObjects(criticalGroup.children, true)
+        const hit = criticalHits[0]
+        if (hit) {
+          let targetObj = hit.object
+          while (
+            targetObj.parent &&
+            !targetObj.userData['criticalPoint'] &&
+            targetObj !== criticalGroup
+          ) {
+            targetObj = targetObj.parent
+          }
+          const cpData = targetObj.userData['criticalPoint'] as
+            CriticalPointData | undefined
+          if (cpData) {
+            const [gx, gy] = funcRef.current.gradient(cpData.x, cpData.y)
+            onPointHoverRef.current({
+              x: cpData.x,
+              y: cpData.y,
+              z: cpData.z,
+              gradient: [gx, gy],
+              gradientMagnitude: Math.hypot(gx, gy),
+              criticalPoint: cpData,
+              screenX: event.clientX,
+              screenY: event.clientY,
+            })
+            return
+          }
+        }
+      }
+
+      // 2. Raycast surface
+      const surfaceHits = raycaster.intersectObject(surfaceMesh)
+      const hitSurface = surfaceHits[0]
+      if (hitSurface) {
+        const point = hitSurface.point
+        const [gx, gy] = funcRef.current.gradient(point.x, point.y)
+        onPointHoverRef.current({
+          x: point.x,
+          y: point.y,
+          z: point.z,
+          gradient: [gx, gy],
+          gradientMagnitude: Math.hypot(gx, gy),
+          screenX: event.clientX,
+          screenY: event.clientY,
+        })
+      } else {
+        onPointHoverRef.current(null)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -69,7 +296,11 @@ export default function HelloSurface({
 
     let renderer: WebGLRenderer
     try {
-      renderer = new WebGLRenderer({ antialias: true, alpha: false })
+      renderer = new WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance',
+      })
     } catch {
       const message = document.createElement('p')
       message.className = 'scene-error'
@@ -81,20 +312,19 @@ export default function HelloSurface({
     }
 
     const scene = new Scene()
-    scene.background = new Color('#080d1b')
+    scene.background = new Color(BG_COLOR)
 
-    const camera = new PerspectiveCamera(42, 1, 0.1, 80)
+    const camera = new PerspectiveCamera(38, 1, 0.1, 80)
     camera.up.set(0, 0, 1)
-    camera.position.set(8.6, -10.5, 8.2)
+    camera.position.set(8.8, -10.5, 8.0)
     camera.lookAt(0, 0, 0)
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.setClearColor('#080d1b')
+    renderer.setClearColor(BG_COLOR)
     renderer.domElement.className = 'scene-webgl'
-    renderer.domElement.setAttribute(
-      'aria-label',
-      'Superfície tridimensional z igual a seno de x vezes cosseno de y',
-    )
+    renderer.domElement.setAttribute('tabindex', '0')
+    renderer.domElement.setAttribute('role', 'img')
+    renderer.domElement.setAttribute('aria-label', func.formulaPlain)
     container.replaceChildren(renderer.domElement)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -103,34 +333,50 @@ export default function HelloSurface({
     controls.enableDamping = true
     controls.dampingFactor = 0.055
     controls.autoRotate = autoRotateRef.current
-    controls.autoRotateSpeed = 0.45
+    controls.autoRotateSpeed = 0.38
     controls.screenSpacePanning = false
-    controls.minDistance = 5
-    controls.maxDistance = 27
+    controls.minDistance = 4.5
+    controls.maxDistance = 28
+    controls.maxPolarAngle = Math.PI * 0.85
     controls.update()
 
-    scene.add(new AmbientLight('#ffffff', 1.5))
-    const keyLight = new DirectionalLight('#ffffff', 2.2)
-    keyLight.position.set(-4, -5, 10)
+    // Lighting setup
+    scene.add(new AmbientLight('#dbeafe', 0.55))
+    const keyLight = new DirectionalLight('#ffffff', 1.9)
+    keyLight.position.set(-4, -6, 11)
     scene.add(keyLight)
-    const fillLight = new DirectionalLight('#718eff', 0.65)
-    fillLight.position.set(5, 4, 2)
+    const fillLight = new DirectionalLight('#818cf8', 0.45)
+    fillLight.position.set(6, 5, 2.5)
     scene.add(fillLight)
+    const rimLight = new DirectionalLight('#38bdf8', 0.25)
+    rimLight.position.set(-2, 6, -3)
+    scene.add(rimLight)
 
-    const surface = createSurface()
-    scene.add(surface)
-    const criticalPoints = createCriticalPoints()
+    // Build scene objects decoupled from hardcoding
+    const { mesh: surfaceMesh, material: surfaceMaterial } = createSurfaceMesh(func)
+    surfaceMeshRef.current = surfaceMesh
+    surfaceMaterialRef.current = surfaceMaterial
+    scene.add(surfaceMesh)
+
+    const criticalPoints = createRefinedCriticalPoints(func.criticalPoints)
     criticalPoints.visible = criticalPointsVisibleRef.current
     criticalPointsRef.current = criticalPoints
     scene.add(criticalPoints)
-    const gradient = createGradientField()
+
+    const gradient = createRefinedGradientField(func)
     gradient.visible = gradientVisibleRef.current
     gradientRef.current = gradient
     scene.add(gradient)
-    scene.add(createFloorGrid())
-    scene.add(createAxis(1, 0, 0, '#ff718b', 3.62))
-    scene.add(createAxis(0, 1, 0, '#51d9b2', 3.62))
-    scene.add(createAxis(0, 0, 1, '#8da8ff', 1.62))
+
+    const grid = createFloorGrid(func.domain, func.range)
+    grid.visible = gridVisibleRef.current
+    gridRef.current = grid
+    scene.add(grid)
+
+    const axesGroup = createRefinedAxesGroup(func)
+    axesGroup.visible = axesVisibleRef.current
+    axesRef.current = axesGroup
+    scene.add(axesGroup)
 
     const resizeObserver = new ResizeObserver(() => {
       const { width, height } = container.getBoundingClientRect()
@@ -141,115 +387,119 @@ export default function HelloSurface({
     })
     resizeObserver.observe(container)
 
+    const onMouseMove = (e: MouseEvent) => {
+      handleCanvasEvent(e, camera, renderer, surfaceMesh, criticalPoints)
+    }
+    const onMouseLeave = () => {
+      if (onPointHoverRef.current) onPointHoverRef.current(null)
+    }
+    renderer.domElement.addEventListener('mousemove', onMouseMove)
+    renderer.domElement.addEventListener('mouseleave', onMouseLeave)
+
+    // Animation loop: smooth initial surface emergence
+    const animationDuration = REDUCED_MOTION ? 0.001 : 2.0
+    const startTime = performance.now()
+    let animationComplete = false
+
     renderer.setAnimationLoop(() => {
       controls.update()
+
+      if (!animationComplete) {
+        const elapsed = (performance.now() - startTime) / 1000
+        const progress = Math.min(elapsed / animationDuration, 1.0)
+        const eased = 1 - Math.pow(1 - progress, 4)
+
+        const pUniform = surfaceMaterial.uniforms['uProgress']
+        const tUniform = surfaceMaterial.uniforms['uTime']
+        if (pUniform) pUniform.value = eased
+        if (tUniform) tUniform.value = elapsed
+
+        if (progress >= 1.0) {
+          animationComplete = true
+        }
+      }
+
       renderer.render(scene, camera)
     })
 
     return () => {
       renderer.setAnimationLoop(null)
+      renderer.domElement.removeEventListener('mousemove', onMouseMove)
+      renderer.domElement.removeEventListener('mouseleave', onMouseLeave)
       resizeObserver.disconnect()
       controls.dispose()
       controlsRef.current = null
       criticalPointsRef.current = null
       gradientRef.current = null
+      gridRef.current = null
+      axesRef.current = null
+      surfaceMeshRef.current = null
+      surfaceMaterialRef.current = null
       scene.traverse((object) => {
         if (
           object instanceof Mesh ||
           object instanceof Line ||
-          object instanceof LineSegments
+          object instanceof LineSegments ||
+          object instanceof Sprite
         ) {
           object.geometry.dispose()
           const materials = Array.isArray(object.material)
             ? object.material
             : [object.material]
-          for (const material of materials) material.dispose()
+          for (const mat of materials) {
+            if (mat instanceof SpriteMaterial) mat.map?.dispose()
+            mat.dispose()
+          }
         }
       })
       renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [])
+  }, [func, handleCanvasEvent])
 
   return <div className="scene-canvas" ref={containerRef} />
 }
 
-interface CriticalPoint {
-  x: number
-  y: number
-  kind: 'maximum' | 'minimum' | 'saddle'
-}
+/* ------------------------------------------------------------------ */
+/*  Surface Generation (Decoupled from specific formula)               */
+/* ------------------------------------------------------------------ */
 
-function createCriticalPoints(): Group {
-  const group = new Group()
-  const points: CriticalPoint[] = [
-    { x: Math.PI / 2, y: 0, kind: 'maximum' },
-    { x: -Math.PI / 2, y: -Math.PI, kind: 'maximum' },
-    { x: -Math.PI / 2, y: Math.PI, kind: 'maximum' },
-    { x: -Math.PI / 2, y: 0, kind: 'minimum' },
-    { x: Math.PI / 2, y: -Math.PI, kind: 'minimum' },
-    { x: Math.PI / 2, y: Math.PI, kind: 'minimum' },
-    ...[-Math.PI, 0, Math.PI].flatMap((x) =>
-      [-Math.PI / 2, Math.PI / 2].map((y) => ({ x, y, kind: 'saddle' as const })),
-    ),
-  ]
-  const geometry = new SphereGeometry(0.085, 16, 12)
-  const materials = {
-    maximum: new MeshStandardMaterial({ color: '#ff718b', emissive: '#5b1224' }),
-    minimum: new MeshStandardMaterial({ color: '#51d9b2', emissive: '#104b3b' }),
-    saddle: new MeshStandardMaterial({ color: '#f5d465', emissive: '#58440b' }),
-  }
-
-  for (const point of points) {
-    const z = Math.sin(point.x) * Math.cos(point.y) + 0.055
-    const marker = new Mesh(geometry, materials[point.kind])
-    marker.position.set(point.x, point.y, z)
-    marker.name = 'critical-' + point.kind
-    group.add(marker)
-  }
-  return group
-}
-
-function createGradientField(): Group {
-  const group = new Group()
-  const samples = [-2.4, -1.6, -0.8, 0, 0.8, 1.6, 2.4]
-  const color = '#f5d465'
-
-  for (const x of samples) {
-    for (const y of samples) {
-      const fx = Math.cos(x) * Math.cos(y)
-      const fy = -Math.sin(x) * Math.sin(y)
-      const magnitude = Math.hypot(fx, fy)
-      if (magnitude < 0.18) continue
-
-      // Lift the planar gradient to the tangent plane of r(x,y)=(x,y,f(x,y)).
-      const direction = new Vector3(fx, fy, fx * fx + fy * fy).normalize()
-      const point = new Vector3(x, y, Math.sin(x) * Math.cos(y) + 0.035)
-      const length = 0.42 * magnitude
-      const arrow = new ArrowHelper(direction, point, length, color, 0.16, 0.09)
-      arrow.name = 'gradient-direction'
-      group.add(arrow)
-    }
-  }
-
-  return group
-}
-
-function createSurface(): Mesh<BufferGeometry, MeshStandardMaterial> {
+function createSurfaceMesh(func: VisualizableFunction): {
+  mesh: Mesh<BufferGeometry, ShaderMaterial>
+  material: ShaderMaterial
+} {
   const positions: number[] = []
   const colors: number[] = []
+  const normals: number[] = []
   const indices: number[] = []
-  const step = (DOMAIN_MAX - DOMAIN_MIN) / SEGMENTS
+
+  const xMin = func.domain.x.min
+  const xMax = func.domain.x.max
+  const yMin = func.domain.y.min
+  const yMax = func.domain.y.max
+  const stepX = (xMax - xMin) / SEGMENTS
+  const stepY = (yMax - yMin) / SEGMENTS
+  const rangeSpan = Math.max(func.range.max - func.range.min, 0.001)
 
   for (let i = 0; i <= SEGMENTS; i += 1) {
-    const x = DOMAIN_MIN + i * step
+    const x = xMin + i * stepX
     for (let j = 0; j <= SEGMENTS; j += 1) {
-      const y = DOMAIN_MIN + j * step
-      const z = Math.sin(x) * Math.cos(y)
+      const y = yMin + j * stepY
+      const z = func.evaluate(x, y)
       positions.push(x, y, z)
 
-      const amplitude = (z + 1) / 2
-      const color = new Color().setHSL(0.64 - amplitude * 0.48, 0.78, 0.54)
+      // Analytical normal vector using gradient:
+      // r_x = (1, 0, fx), r_y = (0, 1, fy) => n = (-fx, -fy, 1)
+      const [fx, fy] = func.gradient(x, y)
+      const nx = -fx
+      const ny = -fy
+      const nz = 1
+      const len = Math.hypot(nx, ny, nz)
+      normals.push(nx / len, ny / len, nz / len)
+
+      // Color mapping from height: cool deep indigo in valleys to warm gold/rose at peaks
+      const t = (z - func.range.min) / rangeSpan
+      const color = evaluateHeightColor(t)
       colors.push(color.r, color.g, color.b)
     }
   }
@@ -264,54 +514,448 @@ function createSurface(): Mesh<BufferGeometry, MeshStandardMaterial> {
 
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3))
   geometry.setAttribute('color', new BufferAttribute(new Float32Array(colors), 3))
   geometry.setIndex(indices)
-  geometry.computeVertexNormals()
 
-  const material = new MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 0.48,
-    metalness: 0.04,
+  const material = new ShaderMaterial({
+    vertexShader: SURFACE_VERTEX_SHADER,
+    fragmentShader: SURFACE_FRAGMENT_SHADER,
+    uniforms: {
+      uProgress: { value: REDUCED_MOTION ? 1.0 : 0.0 },
+      uTime: { value: 0.0 },
+      uHighlight: { value: 0.0 },
+    },
     side: DoubleSide,
+    transparent: true,
   })
-  return new Mesh(geometry, material)
+
+  const mesh = new Mesh(geometry, material)
+  mesh.name = 'surface'
+  return { mesh, material }
 }
 
-function createFloorGrid(): LineSegments<BufferGeometry, LineBasicMaterial> {
+function evaluateHeightColor(t: number): Color {
+  const normalized = Math.min(Math.max(t, 0), 1) * (SURFACE_PALETTE.length - 1)
+  const lowerIndex = Math.floor(normalized)
+  const upperIndex = Math.min(lowerIndex + 1, SURFACE_PALETTE.length - 1)
+  return new Color().lerpColors(
+    SURFACE_PALETTE[lowerIndex]!,
+    SURFACE_PALETTE[upperIndex]!,
+    normalized - lowerIndex,
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Refined, Elegant Critical Points (No more "bola grande e feia"!)   */
+/* ------------------------------------------------------------------ */
+
+function createRefinedCriticalPoints(points: CriticalPointData[]): Group {
+  const root = new Group()
+  root.name = 'critical-points-layer'
+
+  // Micro-scaled, high-precision geometry:
+  const sphereGeo = new SphereGeometry(0.045, 20, 16)
+  const octaGeo = new OctahedronGeometry(0.048, 0)
+  const ringGeo = new TorusGeometry(0.082, 0.0045, 10, 36)
+  const pinGeo = new CylinderGeometry(0.003, 0.003, 0.045, 8)
+  const hitGeo = new SphereGeometry(0.16, 10, 8) // Invisible hit target for comfortable mouse interaction
+
+  // Subtle jewel-like materials with gentle luminous reflections
+  const maxMat = new MeshStandardMaterial({
+    color: '#d79c9d',
+    emissive: '#6b343b',
+    emissiveIntensity: 0.28,
+    roughness: 0.34,
+    metalness: 0.16,
+  })
+  const minMat = new MeshStandardMaterial({
+    color: '#8bb6a2',
+    emissive: '#305742',
+    emissiveIntensity: 0.28,
+    roughness: 0.34,
+    metalness: 0.16,
+  })
+  const saddleMat = new MeshStandardMaterial({
+    color: '#d5b879',
+    emissive: '#655025',
+    emissiveIntensity: 0.26,
+    roughness: 0.36,
+    metalness: 0.14,
+  })
+  const ringMat = new MeshBasicMaterial({
+    color: '#ffffff',
+    transparent: true,
+    opacity: 0.45,
+  })
+  const hitMat = new MeshBasicMaterial({
+    visible: false,
+  })
+
+  for (const cp of points) {
+    const pointGroup = new Group()
+    pointGroup.position.set(cp.x, cp.y, cp.z)
+    pointGroup.userData['criticalPoint'] = cp
+
+    // 1. Invisible generous hit-test sphere for effortless mouse interaction
+    const hitMesh = new Mesh(hitGeo, hitMat)
+    hitMesh.name = `hit-critical-${cp.kind}`
+    pointGroup.add(hitMesh)
+
+    // 2. Visible elegant marker tailored to point type
+    if (cp.kind === 'maximum') {
+      // Sleek ruby beacon + fine tangent ring flat at z=1
+      const jewel = new Mesh(sphereGeo, maxMat)
+      jewel.name = `marker-max`
+      pointGroup.add(jewel)
+
+      const halo = new Mesh(ringGeo, ringMat)
+      halo.name = 'halo'
+      pointGroup.add(halo)
+
+      const pin = new Mesh(pinGeo, maxMat)
+      pin.position.z = -0.02
+      pointGroup.add(pin)
+    } else if (cp.kind === 'minimum') {
+      // Sleek emerald bead + fine ground ring nestled in valley
+      const jewel = new Mesh(sphereGeo, minMat)
+      jewel.name = `marker-min`
+      pointGroup.add(jewel)
+
+      const halo = new Mesh(ringGeo, ringMat)
+      halo.name = 'halo'
+      pointGroup.add(halo)
+
+      const pin = new Mesh(pinGeo, minMat)
+      pin.position.z = 0.02
+      pointGroup.add(pin)
+    } else {
+      // Refined golden octahedron (diamond) reflecting hyperbolic saddle curvature
+      const diamond = new Mesh(octaGeo, saddleMat)
+      diamond.name = `marker-saddle`
+      diamond.rotation.set(Math.PI / 4, 0, Math.PI / 4)
+      pointGroup.add(diamond)
+    }
+
+    root.add(pointGroup)
+  }
+
+  return root
+}
+
+/* ------------------------------------------------------------------ */
+/*  Refined Gradient Field (Consistent arrow length + magnitude color) */
+/* ------------------------------------------------------------------ */
+
+function createRefinedGradientField(func: VisualizableFunction): Group {
+  const group = new Group()
+  group.name = 'gradient-field-layer'
+
+  const spacing = 0.72
+  const xMin = func.domain.x.min
+  const xMax = func.domain.x.max
+  const yMin = func.domain.y.min
+  const yMax = func.domain.y.max
+
+  const countX = Math.floor((xMax - xMin) / spacing)
+  const countY = Math.floor((yMax - yMin) / spacing)
+
+  let maxMag = 0.0001
+  const entries: {
+    x: number
+    y: number
+    z: number
+    fx: number
+    fy: number
+    mag: number
+  }[] = []
+
+  for (let i = 0; i <= countX; i++) {
+    const x = xMin + (i + 0.5) * spacing
+    if (x > xMax) continue
+    for (let j = 0; j <= countY; j++) {
+      const y = yMin + (j + 0.5) * spacing
+      if (y > yMax) continue
+
+      const [fx, fy] = func.gradient(x, y)
+      const mag = Math.hypot(fx, fy)
+      if (mag < 0.09) continue // Near-zero gradient (near critical points) omitted to prevent clutter
+
+      const z = func.evaluate(x, y)
+      entries.push({ x, y, z, fx, fy, mag })
+      if (mag > maxMag) maxMag = mag
+    }
+  }
+
+  for (const { x, y, z, fx, fy, mag } of entries) {
+    // Lift gradient onto the tangent plane: r(x,y) = (x, y, f(x,y))
+    // Direction along tangent plane is (fx, fy, fx^2 + fy^2)
+    const dz = fx * fx + fy * fy
+    const direction = new Vector3(fx, fy, dz).normalize()
+    const origin = new Vector3(x, y, z + 0.035)
+
+    // Sleek constant-length arrows (avoids misleading scale); color conveys magnitude!
+    const arrowLength = 0.32
+    const normMag = mag / maxMag
+    const arrowColor = getGradientColor(normMag)
+
+    const arrow = new ArrowHelper(
+      direction,
+      origin,
+      arrowLength,
+      arrowColor,
+      0.08,
+      0.045,
+    )
+    arrow.name = 'gradient-arrow'
+    group.add(arrow)
+  }
+
+  return group
+}
+
+function getGradientColor(t: number): string {
+  // Dim indigo (slow ascent) -> bright amber-orange (steepest ascent)
+  const r = Math.round(90 + t * 165)
+  const g = Math.round(110 + t * 65 - t * t * 45)
+  const b = Math.round(210 - t * 160)
+  return `rgb(${r},${g},${b})`
+}
+
+/* ------------------------------------------------------------------ */
+/*  Floor Grid & Axes                                                  */
+/* ------------------------------------------------------------------ */
+
+function createFloorGrid(
+  domain: VisualizableFunction['domain'],
+  range: VisualizableFunction['range'],
+): LineSegments<BufferGeometry, LineBasicMaterial> {
   const positions: number[] = []
-  const divisions = 16
-  const step = (DOMAIN_MAX - DOMAIN_MIN) / divisions
-  const floorZ = -1.12
+  const divisions = 14
+  const xMin = domain.x.min
+  const xMax = domain.x.max
+  const yMin = domain.y.min
+  const yMax = domain.y.max
+  const stepX = (xMax - xMin) / divisions
+  const stepY = (yMax - yMin) / divisions
+  const floorZ = Math.min(0, range.min) - Math.max((range.max - range.min) * 0.08, 0.1)
 
   for (let i = 0; i <= divisions; i += 1) {
-    const offset = DOMAIN_MIN + i * step
-    positions.push(DOMAIN_MIN, offset, floorZ, DOMAIN_MAX, offset, floorZ)
-    positions.push(offset, DOMAIN_MIN, floorZ, offset, DOMAIN_MAX, floorZ)
+    const x = xMin + i * stepX
+    if (Math.abs(x) < 0.02) continue
+    positions.push(x, yMin, floorZ, x, yMax, floorZ)
+  }
+  for (let j = 0; j <= divisions; j += 1) {
+    const y = yMin + j * stepY
+    if (Math.abs(y) < 0.02) continue
+    positions.push(xMin, y, floorZ, xMax, y, floorZ)
   }
 
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
   const material = new LineBasicMaterial({
-    color: '#29334d',
+    color: GRID_COLOR,
     transparent: true,
-    opacity: 0.68,
+    opacity: 0.65,
   })
   return new LineSegments(geometry, material)
 }
 
-function createAxis(
-  x: number,
-  y: number,
-  z: number,
+function createRefinedAxesGroup(func: VisualizableFunction): Group {
+  const group = new Group()
+  group.name = 'axes-layer'
+
+  const configs: {
+    dir: Vector3
+    color: string
+    label: string
+    min: number
+    max: number
+    piLabels: boolean
+    pointAt: (value: number) => Vector3
+    tickStart: (value: number) => Vector3
+    tickEnd: (value: number) => Vector3
+    labelAt: (value: number) => Vector3
+  }[] = [
+    {
+      dir: new Vector3(1, 0, 0),
+      color: AXIS_X_COLOR,
+      label: 'x',
+      min: func.domain.x.min,
+      max: func.domain.x.max,
+      piLabels: true,
+      pointAt: (value) => new Vector3(value, 0, 0),
+      tickStart: (value) => new Vector3(value, 0, -0.055),
+      tickEnd: (value) => new Vector3(value, 0, 0.055),
+      labelAt: (value) => new Vector3(value, -0.2, 0.06),
+    },
+    {
+      dir: new Vector3(0, 1, 0),
+      color: AXIS_Y_COLOR,
+      label: 'y',
+      min: func.domain.y.min,
+      max: func.domain.y.max,
+      piLabels: true,
+      pointAt: (value) => new Vector3(0, value, 0),
+      tickStart: (value) => new Vector3(0, value, -0.055),
+      tickEnd: (value) => new Vector3(0, value, 0.055),
+      labelAt: (value) => new Vector3(-0.2, value, 0.06),
+    },
+    {
+      dir: new Vector3(0, 0, 1),
+      color: AXIS_Z_COLOR,
+      label: 'z',
+      min: func.range.min,
+      max: func.range.max,
+      piLabels: false,
+      pointAt: (value) => new Vector3(0, 0, value),
+      tickStart: (value) => new Vector3(-0.055, 0, value),
+      tickEnd: (value) => new Vector3(0.055, 0, value),
+      labelAt: (value) => new Vector3(0.19, 0, value),
+    },
+  ]
+
+  for (const config of configs) {
+    const { dir, color, label, min, max, piLabels } = config
+    const axisLineGeometry = new BufferGeometry().setFromPoints([
+      config.pointAt(min),
+      config.pointAt(max),
+    ])
+    const axisLine = new Line(
+      axisLineGeometry,
+      new LineBasicMaterial({ color, transparent: true, opacity: 0.58 }),
+    )
+    axisLine.name = `axis-line-${label}`
+    group.add(axisLine)
+
+    // ArrowHelper contributes only its arrowhead; the thin axis line spans both signs.
+    if (max > 0) {
+      const arrow = new ArrowHelper(dir, new Vector3(0, 0, 0), max, color, 0.14, 0.07)
+      arrow.line.visible = false
+      arrow.name = `axis-direction-${label}`
+      group.add(arrow)
+    }
+
+    const axisLabel = createTextSprite(label, color, 38, 0.36)
+    axisLabel.position.copy(config.pointAt(max).addScaledVector(dir, 0.35))
+    axisLabel.name = `axis-label-${label}`
+    group.add(axisLabel)
+
+    const tickPositions: number[] = []
+    for (const tick of createAxisTicks(min, max, piLabels)) {
+      tickPositions.push(...config.tickStart(tick.value).toArray())
+      tickPositions.push(...config.tickEnd(tick.value).toArray())
+
+      if (Math.abs(tick.value) < 1e-8 && label !== 'z') continue
+      const tickLabel = createTextSprite(tick.label, '#c0c9c8', 24, 0.4)
+      tickLabel.position.copy(config.labelAt(tick.value))
+      tickLabel.name = `tick-label-${label}-${tick.label}`
+      group.add(tickLabel)
+    }
+
+    const tickGeometry = new BufferGeometry()
+    tickGeometry.setAttribute(
+      'position',
+      new BufferAttribute(new Float32Array(tickPositions), 3),
+    )
+    const tickLines = new LineSegments(
+      tickGeometry,
+      new LineBasicMaterial({ color, transparent: true, opacity: 0.52 }),
+    )
+    tickLines.name = `axis-ticks-${label}`
+    group.add(tickLines)
+  }
+
+  return group
+}
+
+function createAxisTicks(
+  min: number,
+  max: number,
+  preferPiLabels: boolean,
+): { value: number; label: string }[] {
+  const span = max - min
+  if (!Number.isFinite(span) || span <= 0) return []
+
+  if (preferPiLabels && Math.max(Math.abs(min), Math.abs(max)) <= Math.PI * 4) {
+    const piStep = Math.PI / 2
+    const alignedMin = Math.abs(min / piStep - Math.round(min / piStep)) < 1e-6
+    const alignedMax = Math.abs(max / piStep - Math.round(max / piStep)) < 1e-6
+    const first = Math.ceil((min - 1e-8) / piStep)
+    const last = Math.floor((max + 1e-8) / piStep)
+    if (alignedMin && alignedMax && last - first >= 2 && last - first <= 8) {
+      return Array.from({ length: last - first + 1 }, (_, index) => {
+        const multiple = first + index
+        return {
+          value: multiple * piStep,
+          label: formatPiMultiple(multiple),
+        }
+      })
+    }
+  }
+
+  const roughStep = span / 4
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep))
+  const normalizedStep = roughStep / magnitude
+  const niceFactor =
+    normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10
+  const step = niceFactor * magnitude
+  const first = Math.ceil((min - step * 1e-8) / step) * step
+  const ticks: { value: number; label: string }[] = []
+
+  for (
+    let value = first;
+    value <= max + step * 1e-8 && ticks.length < 10;
+    value += step
+  ) {
+    const rounded = Number(value.toPrecision(8))
+    ticks.push({ value: rounded, label: formatAxisNumber(rounded) })
+  }
+  return ticks
+}
+
+function formatPiMultiple(multiple: number): string {
+  if (multiple === 0) return '0'
+  const sign = multiple < 0 ? '−' : ''
+  const absolute = Math.abs(multiple)
+  if (absolute === 1) return `${sign}π/2`
+  if (absolute === 2) return `${sign}π`
+  return `${sign}${absolute / 2}π`
+}
+
+function formatAxisNumber(value: number): string {
+  if (Math.abs(value) < 1e-8) return '0'
+  const formatted = Number(value.toPrecision(3)).toString()
+  return value < 0 ? `−${formatted.slice(1)}` : formatted
+}
+
+function createTextSprite(
+  text: string,
   color: string,
-  length: number,
-): ArrowHelper {
-  return new ArrowHelper(
-    new Vector3(x, y, z),
-    new Vector3(0, 0, 0),
-    length,
-    color,
-    0.18,
-    0.09,
-  )
+  fontSize: number,
+  scale: number = 0.5,
+): Sprite {
+  const canvas = document.createElement('canvas')
+  const size = 128
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.clearRect(0, 0, size, size)
+    ctx.fillStyle = color
+    ctx.font = `600 ${fontSize}px "DM Mono", monospace`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, size / 2, size / 2)
+  }
+
+  const texture = new CanvasTexture(canvas)
+  const material = new SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+  })
+  const sprite = new Sprite(material)
+  sprite.scale.set(scale, scale, 1)
+  return sprite
 }

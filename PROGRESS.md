@@ -5,37 +5,43 @@
 
 ## Resumo atual
 
-- **Fase atual:** 0 — Preparação
-- **Tarefa atual:** F0-T3 — protótipo hello surface (aguardando revisão matemática)
-- **Última sessão:** 2026-10-18
-- **Estado dos testes:** não executados nesta sessão
-- **Estado do build/tipos:** `pnpm lint` e `pnpm build` concluíram sem erros; build avisou que o chunk inicial tem 787,01 kB após minificação
-- **Último commit:** `feat: mostra análise matemática interativa`
+- **Fase atual:** 1 — Fundação e superfícies
+- **Tarefa atual:** F1-T1 — layout de três colunas, cena 3D e eixos com marcações
+- **Última sessão:** 2026-10-20
+- **Estado dos testes:** `pnpm test` — 8 testes passando (1 arquivo, 0 falhas)
+- **Estado do build/tipos:** `pnpm lint`, `pnpm typecheck`, `pnpm format:check` e `pnpm build` concluídos sem erros; o Vite ainda avisa que o bundle JavaScript minificado excede 500 kB
+- **Último commit:** `feat: monta laboratório visual de superfícies`
 
 ## Painel de fases
 
-| Fase | Nome                              | Status          | Portão de revisão matemática |
-| ---- | --------------------------------- | --------------- | ---------------------------- |
-| 0    | Preparação                        | 🟨 em andamento | ⬜ pendente                  |
-| 1    | Fundação e superfícies            | ⬜              | ⬜                           |
-| 2    | Integral dupla retangular         | ⬜              | ⬜                           |
-| 3    | Regiões gerais e polar (**MVP**)  | ⬜              | ⬜                           |
-| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                           |
-| 5    | Integral tripla                   | ⬜              | ⬜                           |
-| 6    | Equações diferenciais             | ⬜              | ⬜                           |
-| 7    | Plataforma e polimento            | ⬜              | ⬜                           |
-| 8    | Desempenho e WASM                 | ⬜              | ⬜                           |
-| 9    | Extras                            | ⬜              | —                            |
+| Fase | Nome                              | Status          | Portão de revisão matemática                   |
+| ---- | --------------------------------- | --------------- | ---------------------------------------------- |
+| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1 |
+| 1    | Fundação e superfícies            | 🟨 em andamento | ⬜                                             |
+| 2    | Integral dupla retangular         | ⬜              | ⬜                                             |
+| 3    | Regiões gerais e polar (**MVP**)  | ⬜              | ⬜                                             |
+| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                             |
+| 5    | Integral tripla                   | ⬜              | ⬜                                             |
+| 6    | Equações diferenciais             | ⬜              | ⬜                                             |
+| 7    | Plataforma e polimento            | ⬜              | ⬜                                             |
+| 8    | Desempenho e WASM                 | ⬜              | ⬜                                             |
+| 9    | Extras                            | ⬜              | —                                              |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprovada na revisão
 
 ## Tarefas da fase atual
 
-| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                  |
-| ----- | ---------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | `pnpm lint`, `pnpm typecheck` e `pnpm build` concluídos segundo captura do usuário; CI informado como verde pelo usuário     |
-| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`                                                                            |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | 🟨     | Cena com marcadores de extremos/selas, campo do gradiente opcional e painel de análise; aguardando revisão visual/matemática |
+| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                          |
+| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | Verificações de lint, tipos e build reportadas pelo usuário; CI informado como verde.                                                |
+| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`.                                                                                   |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ✅     | Revisão aprovada pelo usuário ao solicitar explicitamente o avanço para a Fase 1; 8 testes matemáticos passam.                       |
+| F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal. |
+| F1-T2 | Parser seguro de expressões                                | ⬜     | Próxima tarefa; implementar lista branca e testes válidos/inválidos.                                                                 |
+| F1-T3 | Campo de fórmula e superfície                              | ⬜     | Pendente.                                                                                                                            |
+| F1-T4 | Cálculo em Web Worker                                      | ⬜     | Pendente.                                                                                                                            |
+| F1-T5 | Parâmetros livres e sliders                                | ⬜     | Pendente.                                                                                                                            |
+| F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                            |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -153,3 +159,43 @@ Marque conforme forem implementados **e passando**.
 - **Verificações:** `pnpm lint` passou; `pnpm build` passou (20 módulos transformados), com o aviso existente de chunk grande, agora 787,01 kB minificado. `pnpm typecheck` isolado foi bloqueado pela permissão de escrita no cache do TypeScript; o build executou `tsc -b` e passou. Testes não executados.
 - **Não verificado:** inspeção visual manual no navegador e revisão matemática do usuário para os novos marcadores e vetores.
 - **Próximo passo:** usuário conferir a exibição dos extremos/selas e do gradiente no navegador; manter a Fase 0 aberta até a revisão matemática.
+
+### Sessão 4
+
+- **Data:** 2026-10-20
+- **Tarefa:** F0-T3 — Elevação visual e interativa, notação matemática de papel e preparação para funções futuras.
+- **Feito:**
+  1. **Desacoplamento de funções:** Criada camada de configuração matemática em `src/core/functions/` (`types.ts`, `sinCosFunction.ts`, `index.ts`), separando avaliação, domínio, gradiente, pontos críticos e etapas analíticas da cena 3D.
+  2. **Notação matemática elegante ("como no papel"):** Criado `src/ui/MathView.tsx` e `src/ui/MathAnalysisPanel.tsx`, substituindo blocos de código/monospace por tipografia matemática clássica (frações verticais com barra horizontal, variáveis em itálico, operadores romanos, subscritos/sobrescritos reais, sistemas de equações com chave e matrizes Hessianas alinhadas).
+  3. **Alinhamento e enquadramento das equações na UI:** Centralização com flexbox horizontal/vertical em `MathBlock`, chave matemática estilizada em `MathSystem`, alinhamento vertical das derivadas com `MathAlign`, componente `MSqrt` com traço horizontal para raízes quadradas e enquadramento equilibrado das fórmulas do vetor gradiente ($\nabla f$ e $\|\nabla f\|$), eliminando transbordamento lateral ou deslocamento na aba.
+  4. **Refinamento dos pontos críticos:** Substituídas as esferas volumosas ("bolas grandes") por marcadores geométricos delicados e precisos (joia com halo tangente horizontal para máximos/mínimos e octaedro/diamante para selas indicando a curvatura hiperbólica), com raio de colisão invisível ampliado para seleção confortável por mouse/hover.
+  5. **Gradiente e iluminação:** Setas de tamanho uniforme com cor indicando magnitude real (evitando distorções de perspectiva) e shader de formação suave com interpolação radial ao iniciar, respeitando `prefers-reduced-motion`.
+  6. **Testes matemáticos:** Criada suíte `src/core/functions/sinCosFunction.test.ts` (8 testes cobrindo valores conhecidos, gradiente simbólico vs. diferenças finitas, teste da Hessiana para os 12 pontos e identidade de Helmholtz $\Delta f + 2f = 0$).
+- **Verificações executadas:**
+  - `pnpm vitest run`: 8 testes passaram (1 arquivo de teste, 0 falhas).
+  - `npx tsc -b`: 0 erros de tipo (modo estrito).
+  - `pnpm lint`: 0 erros e 0 warnings.
+  - `pnpm format:check`: 100% formatado conforme Prettier.
+  - `pnpm build`: concluído com sucesso (24 módulos transformados, aviso de chunk Three.js mantido conforme previsto).
+- **Não verificado:** inspeção subjetiva de renderização WebGL em dispositivo móvel com GPU restrita.
+- **Próximo passo:** Revisão matemática e visual da Fase 0 pelo usuário no navegador.
+
+### Sessão 5
+
+- **Data:** 2026-10-20
+- **Tarefa:** F1-T1 — layout profissional de três colunas e marcações dos eixos.
+- **Feito:**
+  1. O portão da Fase 0 foi considerado aprovado pelo pedido explícito do usuário para avançar à Fase 1. A superfície mantida é `z = sin(x)·cos(y)` no domínio `[-π, π]²`, com imagem `[-1, 1]`.
+  2. Reorganizada a interface em três regiões: controles e definição da função, cena 3D central e leitura matemática passo a passo. Em larguras menores, as regiões se reorganizam em duas colunas e depois em uma coluna.
+  3. Reduzido o uso de brilho, cores saturadas e fundos decorativos. A superfície usa uma escala contínua de azul ardósia a areia; os eixos mantêm cores distintas e discretas.
+  4. Os eixos x e y agora marcam `−π`, `−π/2`, `0`, `π/2` e `π` para o domínio atual; o eixo z usa marcações numéricas compatíveis com a imagem da função. As marcações acompanham domínio e intervalo configurados.
+  5. As etapas da análise podem ser acessadas por botões com rótulos e indicação da etapa atual, inclusive por teclado. O inspetor de coordenadas permanece ancorado dentro da cena.
+- **Verificações executadas:**
+  - `pnpm lint`: passou.
+  - `pnpm typecheck`: passou.
+  - `pnpm test`: 8 testes passaram (1 arquivo; 0 falhas).
+  - `pnpm format:check`: passou.
+  - `pnpm build`: passou; o bundle JavaScript minificado ficou em 830,62 kB, acima do limite de aviso de 500 kB do Vite.
+  - Prévia WebGL no navegador: a cena e os passos matemáticos foram visualmente conferidos; os modos de viewport 1440, 1160, 800 e 480 px não apresentaram overflow horizontal. O controle do gradiente e a navegação entre passos responderam como esperado.
+- **Não verificado:** desempenho em aparelho móvel físico ou GPU restrita; CI remoto.
+- **Próximo passo:** F1-T2 — parser seguro de expressões, seguindo a lista branca e os testes exigidos no plano.

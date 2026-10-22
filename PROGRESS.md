@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 1 — Fundação e superfícies
-- **Tarefa atual:** F1-T1 — layout de três colunas, cena 3D e eixos com marcações
-- **Última sessão:** 2026-10-20
-- **Estado dos testes:** `pnpm test` — 8 testes passando (1 arquivo, 0 falhas)
+- **Tarefa atual:** F1-T4 — mover avaliações para Web Worker com Comlink, debounce e cancelamento por id
+- **Última sessão:** 2026-10-22
+- **Estado dos testes:** `pnpm test` — 56 testes passando (4 arquivos, 0 falhas)
 - **Estado do build/tipos:** `pnpm lint`, `pnpm typecheck`, `pnpm format:check` e `pnpm build` concluídos sem erros; o Vite ainda avisa que o bundle JavaScript minificado excede 500 kB
-- **Último commit:** `feat: monta laboratório visual de superfícies`
+- **Último commit:** `feat: conecta fórmulas à superfície 3D`
 
 ## Painel de fases
 
@@ -217,3 +217,28 @@ Marque conforme forem implementados **e passando**.
   - `pnpm build`: passou; permaneceu o aviso conhecido de bundle JavaScript acima de 500 kB (830,62 kB minificado).
 - **Não verificado:** análise formal de segurança do math.js; a bateria de entradas hostis é determinística, não uma prova de segurança. A integração do parser ao campo de fórmula e à superfície pertence à F1-T3.
 - **Próximo passo:** F1-T3 — campo de fórmula e superfície no thread principal, com tratamento de NaN/∞.
+
+### Sessão 7
+
+- **Data:** 2026-10-22
+- **Tarefa:** F1-T3 — integrar fórmulas do parser com a superfície e tratar amostras não finitas.
+- **Feito:**
+  1. Criado adaptador de expressão para `VisualizableFunction`, com domínio cartesiano padrão `[-π, π]²` e faixa visual estimada por amostragem.
+  2. Integrado campo de fórmula controlado à cena; a troca só ocorre após uma expressão válida. Em erro, a mensagem é localizada e a última superfície continua ativa.
+  3. Malha usa amostras finitas e representáveis em Float32; triângulos ligados a amostras inválidas são omitidos para desenhar buracos, em vez de paredes artificiais. Normais aproximadas são usadas apenas na renderização para funções sem gradiente analítico.
+  4. Controles de camadas e análise específica de `sin(x)·cos(y)` são ocultados ao aplicar função sem análise correspondente.
+  5. Atendido o critério de aceite da F1-T3 para `sin(a*x)*cos(y)` com um slider básico de `a` (inicial 1, faixa −3 a 3, passo 0,05). A animação e o refinamento dos parâmetros permanecem na F1-T5, conforme a lista de tarefas.
+- **Evidências matemáticas e visuais:**
+  - Para `x²+y²`, a avaliação em `(1,2)` é 5, exatamente `1²+2²`; o gráfico observado é o paraboloide.
+  - Para `sin(a·x)·cos(y)`, com `a=1`, o valor em `(π/2,0)` é 1; com `a=2`, o valor em `(π/4,0)` é 1. A prévia confirmou que o slider altera de 1,00 para 1,05 e atualiza a cena.
+  - `1/x` preserva o infinito em `x=0`; na malha 97×97 a coluna central (97 amostras) é indicada como buracos. `sqrt(x)` também deixa sem triângulos a região de `x<0`.
+  - `sin(` mostra erro do parser e mantém a superfície válida anterior.
+- **Verificações executadas:**
+  - `pnpm lint`: passou sem erros ou avisos.
+  - `pnpm typecheck`: passou.
+  - `pnpm test`: 56 testes passaram em 4 arquivos (0 falhas).
+  - `pnpm format:check`: passou.
+  - `pnpm build`: passou; aviso conhecido do Vite para bundle inicial minificado acima de 500 kB (1.492,15 kB nesta build).
+  - Prévia local conferida por interação real com fórmula, erro, buracos e slider; console sem erros.
+- **Não verificado:** revisão matemática/visual independente do usuário; desempenho em dispositivo móvel físico ou GPU restrita. Avaliações continuam na thread principal nesta tarefa; a F1-T4 moverá o cálculo para Worker.
+- **Próximo passo:** F1-T4 — Worker via Comlink, debounce e cancelamento por id de job. Não avançar para a Fase 2 até terminar a Fase 1 e passar pelo portão de revisão matemática.

@@ -1,11 +1,18 @@
 import { useState, useCallback } from 'react'
+import type { FormEvent } from 'react'
 import HelloSurface from '../render/HelloSurface'
-import type { PointInfo } from '../render/HelloSurface'
-import { sinCosFunction } from '../core/functions'
+import type { PointInfo, SurfaceDiagnostics } from '../render/HelloSurface'
+import {
+  createExpressionFunction,
+  getExpressionParameters,
+  sinCosFunction,
+} from '../core/functions'
+import type { VisualizableFunction } from '../core/functions'
 import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 
 const fn = sinCosFunction
+const DEFAULT_EXPRESSION = 'sin(x)*cos(y)'
 
 const axisLegend = [
   { axis: 'x', color: 'axis-x', direction: 'horizontal' },
@@ -20,6 +27,13 @@ const criticalKindBadge: Record<string, { label: string; badgeClass: string }> =
 }
 
 export default function App() {
+  const [activeFunction, setActiveFunction] = useState<VisualizableFunction>(fn)
+  const [parameterValues, setParameterValues] = useState<Record<string, number>>({})
+  const [formulaDraft, setFormulaDraft] = useState(DEFAULT_EXPRESSION)
+  const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
+  const [formulaError, setFormulaError] = useState<string | null>(null)
+  const [surfaceDiagnostics, setSurfaceDiagnostics] =
+    useState<SurfaceDiagnostics | null>(null)
   const [autoRotate, setAutoRotate] = useState(true)
   const [showCriticalPoints, setShowCriticalPoints] = useState(true)
   const [showGradient, setShowGradient] = useState(false)
@@ -34,6 +48,55 @@ export default function App() {
     setHoveredPoint(info)
   }, [])
 
+  const handleSurfaceDiagnostics = useCallback((diagnostics: SurfaceDiagnostics) => {
+    setSurfaceDiagnostics(diagnostics)
+  }, [])
+
+  const handleApplyFormula = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    try {
+      const parameters = getExpressionParameters(formulaDraft)
+      const nextParameterValues = Object.fromEntries(
+        parameters.map((name) => [name, 1]),
+      )
+      const nextFunction = createExpressionFunction(formulaDraft, nextParameterValues)
+      setActiveFunction(nextFunction)
+      setParameterValues(nextParameterValues)
+      setAppliedExpression(formulaDraft.trim())
+      setFormulaError(null)
+      setSurfaceDiagnostics(null)
+      setShowCriticalPoints(false)
+      setShowGradient(false)
+      setHoveredPoint(null)
+    } catch (error) {
+      setFormulaError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível aplicar essa expressão matemática.',
+      )
+    }
+  }
+
+  const handleRestoreExample = () => {
+    setActiveFunction(fn)
+    setParameterValues({})
+    setFormulaDraft(DEFAULT_EXPRESSION)
+    setAppliedExpression(null)
+    setFormulaError(null)
+    setSurfaceDiagnostics(null)
+    setShowCriticalPoints(true)
+    setShowGradient(false)
+    setHoveredPoint(null)
+  }
+
+  const handleParameterChange = (name: string, value: number) => {
+    const nextValues = { ...parameterValues, [name]: value }
+    setParameterValues(nextValues)
+    if (appliedExpression) {
+      setActiveFunction(createExpressionFunction(appliedExpression, nextValues))
+    }
+  }
+
   const handleHighlight = useCallback(
     (element: 'surface' | 'gradient' | 'criticalPoints' | 'axes') => {
       setHighlightedElement(element)
@@ -47,6 +110,14 @@ export default function App() {
   const formatNum = (n: number, decimals: number = 3): string => {
     return n.toFixed(decimals)
   }
+
+  const isCustomFunction = activeFunction.id !== fn.id
+  const surfaceWarning =
+    isCustomFunction && surfaceDiagnostics && surfaceDiagnostics.invalidSampleCount > 0
+      ? surfaceDiagnostics.invalidSampleCount === surfaceDiagnostics.totalSampleCount
+        ? 'Nenhum ponto da malha tem valor real e finito nesta janela.'
+        : `${surfaceDiagnostics.invalidSampleCount} amostras sem valor real finito ou fora da faixa gráfica foram omitidas como buracos.`
+      : null
 
   return (
     <main className="prototype-shell">
@@ -74,56 +145,142 @@ export default function App() {
           <div className="section-kicker">
             <span /> SUPERFÍCIE MATEMÁTICA
           </div>
-          <h1>Seno × cosseno</h1>
+          <h1>{isCustomFunction ? 'Função personalizada' : 'Seno × cosseno'}</h1>
           <p className="panel-description">
-            Uma função de duas variáveis, explorada em três dimensões.
+            {isCustomFunction
+              ? 'A expressão aplicada é desenhada sobre o domínio cartesiano padrão.'
+              : 'Uma função de duas variáveis, explorada em três dimensões.'}
           </p>
 
           {/* Formula Card com tipografia de livro/papel */}
           <div className="formula-card">
             <span className="card-label">FUNÇÃO EM ESTUDO</span>
-            <MathBlock className="formula-main-paper">
-              <MVar>z</MVar> = <MFn>sin</MFn>(<MVar>x</MVar>) · <MFn>cos</MFn>(
-              <MVar>y</MVar>)
+            <form className="formula-editor" onSubmit={handleApplyFormula}>
+              <label htmlFor="formula-input">Digite uma fórmula para z = f(x, y)</label>
+              <div className="formula-input-row">
+                <span aria-hidden="true">z =</span>
+                <input
+                  id="formula-input"
+                  name="formula"
+                  type="text"
+                  value={formulaDraft}
+                  onChange={(event) => {
+                    setFormulaDraft(event.target.value)
+                    setFormulaError(null)
+                  }}
+                  aria-invalid={formulaError !== null}
+                  aria-describedby={formulaError ? 'formula-error' : 'formula-help'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="x^2 + y^2"
+                />
+                <button type="submit">Aplicar</button>
+              </div>
+              <p id="formula-help" className="formula-help">
+                Use x e y, operações + − × ÷ ^ e funções da lista matemática.
+              </p>
+              {formulaError && (
+                <p id="formula-error" className="formula-error" role="alert">
+                  {formulaError} A superfície anterior foi mantida.
+                </p>
+              )}
+              {isCustomFunction && (
+                <button
+                  className="restore-example-button"
+                  type="button"
+                  onClick={handleRestoreExample}
+                >
+                  Restaurar exemplo
+                </button>
+              )}
+            </form>
+
+            <MathBlock className="formula-main-paper formula-applied">
+              <MVar>z</MVar> ={' '}
+              {appliedExpression ? (
+                <span className="formula-source">{appliedExpression}</span>
+              ) : (
+                <>
+                  <MFn>sin</MFn>(<MVar>x</MVar>) · <MFn>cos</MFn>(<MVar>y</MVar>)
+                </>
+              )}
             </MathBlock>
+            {Object.keys(parameterValues).length > 0 && (
+              <div className="parameter-controls" aria-label="Parâmetros da função">
+                {Object.entries(parameterValues).map(([name, value]) => (
+                  <label
+                    className="parameter-control"
+                    key={name}
+                    htmlFor={`parameter-${name}`}
+                  >
+                    <span>
+                      Parâmetro <MVar>{name}</MVar>
+                    </span>
+                    <input
+                      id={`parameter-${name}`}
+                      type="range"
+                      min="-3"
+                      max="3"
+                      step="0.05"
+                      value={value}
+                      onChange={(event) =>
+                        handleParameterChange(name, Number(event.currentTarget.value))
+                      }
+                      aria-label={`Valor do parâmetro ${name}`}
+                    />
+                    <output htmlFor={`parameter-${name}`}>{value.toFixed(2)}</output>
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="formula-subinfo">
               <span>
-                Domínio:{' '}
-                <MathText>
-                  −π ≤ <MVar>x</MVar>, <MVar>y</MVar> ≤ π
-                </MathText>
+                Domínio: <MathText>{activeFunction.domainLabel}</MathText>
               </span>
               <span>
-                Imagem: <MathText>[−1, +1]</MathText>
+                {isCustomFunction ? 'Escala da cena:' : 'Imagem:'}{' '}
+                <MathText>
+                  [{formatNum(activeFunction.range.min, 2)},{' '}
+                  {formatNum(activeFunction.range.max, 2)}]
+                </MathText>
               </span>
             </div>
+            {surfaceWarning && (
+              <p className="surface-warning" role="status">
+                {surfaceWarning}
+              </p>
+            )}
           </div>
 
           {/* Layer toggles */}
           <fieldset className="layer-toggles">
             <legend className="card-label">CAMADAS VISUAIS</legend>
             <div className="toggles-grid">
-              <label className="toggle-option">
-                <input
-                  type="checkbox"
-                  checked={showCriticalPoints}
-                  onChange={(e) => setShowCriticalPoints(e.target.checked)}
-                />
-                <span className="toggle-indicator" />
-                <span className="legend-dot critical-max" />
-                <span>Pontos críticos</span>
-              </label>
+              {activeFunction.criticalPoints.length > 0 && (
+                <label className="toggle-option">
+                  <input
+                    type="checkbox"
+                    checked={showCriticalPoints}
+                    onChange={(e) => setShowCriticalPoints(e.target.checked)}
+                  />
+                  <span className="toggle-indicator" />
+                  <span className="legend-dot critical-max" />
+                  <span>Pontos críticos</span>
+                </label>
+              )}
 
-              <label className="toggle-option">
-                <input
-                  type="checkbox"
-                  checked={showGradient}
-                  onChange={(e) => setShowGradient(e.target.checked)}
-                />
-                <span className="toggle-indicator" />
-                <span className="legend-dot gradient-dot" />
-                <span>Campo do gradiente</span>
-              </label>
+              {activeFunction.gradient && (
+                <label className="toggle-option">
+                  <input
+                    type="checkbox"
+                    checked={showGradient}
+                    onChange={(e) => setShowGradient(e.target.checked)}
+                  />
+                  <span className="toggle-indicator" />
+                  <span className="legend-dot gradient-dot" />
+                  <span>Campo do gradiente</span>
+                </label>
+              )}
 
               <label className="toggle-option">
                 <input
@@ -220,7 +377,7 @@ export default function App() {
           </div>
 
           <HelloSurface
-            func={fn}
+            func={activeFunction}
             autoRotate={autoRotate}
             showCriticalPoints={showCriticalPoints}
             showGradient={showGradient}
@@ -228,16 +385,26 @@ export default function App() {
             showAxes={showAxes}
             highlightedElement={highlightedElement}
             onPointHover={handlePointHover}
+            onSurfaceDiagnostics={handleSurfaceDiagnostics}
           />
 
           <div className="scene-caption">
             <span>
               <MathText>
-                <MVar>f</MVar>(<MVar>x</MVar>, <MVar>y</MVar>) = <MFn>sin</MFn>(
-                <MVar>x</MVar>)<MFn>cos</MFn>(<MVar>y</MVar>)
+                {appliedExpression ? (
+                  <>
+                    <MVar>z</MVar> ={' '}
+                    <span className="formula-source">{appliedExpression}</span>
+                  </>
+                ) : (
+                  <>
+                    <MVar>f</MVar>(<MVar>x</MVar>, <MVar>y</MVar>) = <MFn>sin</MFn>(
+                    <MVar>x</MVar>)<MFn>cos</MFn>(<MVar>y</MVar>)
+                  </>
+                )}
               </MathText>
             </span>
-            <span>{fn.domainLabel}</span>
+            <span>{activeFunction.domainLabel}</span>
           </div>
 
           {/* Point inspector stays anchored inside the scene. */}
@@ -293,7 +460,20 @@ export default function App() {
             <h2>Da função à forma</h2>
             <p>Explore a derivação e relacione cada ideia à geometria.</p>
           </div>
-          <MathAnalysisPanel func={fn} onHighlightElement={handleHighlight} />
+          {isCustomFunction ? (
+            <div className="analysis-placeholder" role="status">
+              <span className="card-label">EXPRESSÃO APLICADA</span>
+              <p>
+                A superfície representa a fórmula digitada. A análise simbólica e a
+                classificação de pontos críticos serão conectadas em etapas posteriores.
+              </p>
+            </div>
+          ) : (
+            <MathAnalysisPanel
+              func={activeFunction}
+              onHighlightElement={handleHighlight}
+            />
+          )}
         </aside>
       </section>
     </main>

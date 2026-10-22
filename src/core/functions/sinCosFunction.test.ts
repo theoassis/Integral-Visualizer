@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { sinCosFunction } from './sinCosFunction'
 
 describe('sinCosFunction (z = sin(x) · cos(y))', () => {
-  const { evaluate, gradient, criticalPoints, range, domain } = sinCosFunction
+  const { evaluate, criticalPoints, range, domain } = sinCosFunction
+  const gradient = sinCosFunction.gradient!
 
   it('possui o domínio correto [−π, π]²', () => {
     expect(domain.x.min).toBeCloseTo(-Math.PI)

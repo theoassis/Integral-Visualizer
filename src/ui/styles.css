@@ -439,6 +439,134 @@ button {
   background: #14191e;
 }
 
+.formula-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.formula-editor > label {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+.formula-input-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.22rem 0.25rem 0.22rem 0.7rem;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: #0c1116;
+  transition: border-color var(--transition-fast);
+}
+
+.formula-input-row:focus-within {
+  border-color: var(--border-active);
+}
+
+.formula-input-row:has(input[aria-invalid='true']) {
+  border-color: #9a6267;
+}
+
+.formula-input-row > span {
+  color: var(--text-math);
+  font-family: var(--font-math);
+  font-size: 0.93rem;
+  white-space: nowrap;
+}
+
+.formula-input-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.48rem 0;
+  border: 0;
+  outline: 0;
+  color: var(--text-primary);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.formula-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.formula-input-row button {
+  padding: 0.48rem 0.66rem;
+  border: 1px solid #465b60;
+  border-radius: 0.25rem;
+  color: #e3e8e1;
+  background: #202c30;
+  cursor: pointer;
+  font-size: 0.68rem;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.formula-input-row button:hover {
+  border-color: #647f82;
+  background: #29393c;
+}
+
+.formula-input-row button:focus-visible,
+.restore-example-button:focus-visible {
+  outline: 2px solid var(--accent-blue-light);
+  outline-offset: 2px;
+}
+
+.formula-help,
+.formula-error,
+.surface-warning {
+  margin: 0;
+  font-size: 0.64rem;
+  line-height: 1.5;
+}
+
+.formula-help {
+  color: var(--text-muted);
+}
+
+.formula-error {
+  color: #e5a7a7;
+}
+
+.restore-example-button {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  color: var(--accent-blue-light);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.64rem;
+}
+
+.restore-example-button:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.formula-applied {
+  margin-top: 0.75rem !important;
+}
+
+.formula-source {
+  overflow-wrap: anywhere;
+  color: var(--text-math);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-style: normal;
+}
+
+.surface-warning {
+  margin-top: 0.55rem;
+  color: #e2c58e;
+}
+
 .formula-main-paper {
   margin: 0.5rem 0 0.6rem !important;
   background: #101419 !important;
@@ -448,9 +576,56 @@ button {
 .formula-subinfo {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
   margin-top: 0.4rem;
   color: var(--text-muted);
   font-size: 0.74rem;
+}
+
+.parameter-controls {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.7rem 0 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #14191e;
+}
+
+.parameter-control {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) 2.8rem;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.parameter-control input {
+  width: 100%;
+  accent-color: var(--accent-blue-light);
+}
+
+.parameter-control output {
+  color: var(--text-math);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.analysis-placeholder {
+  padding: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #14191e;
+}
+
+.analysis-placeholder p {
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.6;
 }
 
 /* ================================================================== */

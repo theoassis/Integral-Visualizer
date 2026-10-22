@@ -19,8 +19,8 @@ export interface VisualizableFunction {
   range: { min: number; max: number }
   /** Evaluate the function at (x, y) */
   evaluate: (x: number, y: number) => number
-  /** Compute the gradient [∂f/∂x, ∂f/∂y] at (x, y) */
-  gradient: (x: number, y: number) => [number, number]
+  /** Compute the gradient [∂f/∂x, ∂f/∂y] at (x, y), when known analytically */
+  gradient?: (x: number, y: number) => [number, number]
   /** Critical points with classification */
   criticalPoints: CriticalPointData[]
   /** Step-by-step mathematical analysis in pt-BR */

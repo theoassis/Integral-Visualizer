@@ -31,6 +31,7 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { CriticalPointData, VisualizableFunction } from '../core/functions/types'
+import { createSurfaceGrid, estimateGridGradient } from './surfaceGrid'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -47,6 +48,11 @@ export interface PointInfo {
   screenY: number
 }
 
+export interface SurfaceDiagnostics {
+  invalidSampleCount: number
+  totalSampleCount: number
+}
+
 interface HelloSurfaceProps {
   func: VisualizableFunction
   autoRotate: boolean
@@ -56,6 +62,7 @@ interface HelloSurfaceProps {
   showAxes: boolean
   highlightedElement?: 'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
   onPointHover?: (info: PointInfo | null) => void
+  onSurfaceDiagnostics?: (diagnostics: SurfaceDiagnostics) => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +155,7 @@ export default function HelloSurface({
   showAxes,
   highlightedElement,
   onPointHover,
+  onSurfaceDiagnostics,
 }: HelloSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
@@ -163,6 +171,7 @@ export default function HelloSurface({
   const surfaceMeshRef = useRef<Mesh | null>(null)
   const surfaceMaterialRef = useRef<ShaderMaterial | null>(null)
   const onPointHoverRef = useRef(onPointHover)
+  const onSurfaceDiagnosticsRef = useRef(onSurfaceDiagnostics)
   const funcRef = useRef(func)
 
   useEffect(() => {
@@ -172,6 +181,10 @@ export default function HelloSurface({
   useEffect(() => {
     onPointHoverRef.current = onPointHover
   }, [onPointHover])
+
+  useEffect(() => {
+    onSurfaceDiagnosticsRef.current = onSurfaceDiagnostics
+  }, [onSurfaceDiagnostics])
 
   useEffect(() => {
     autoRotateRef.current = autoRotate
@@ -235,6 +248,16 @@ export default function HelloSurface({
 
       const raycaster = new Raycaster()
       raycaster.setFromCamera(mouse, camera)
+      const gradientDetails = (
+        x: number,
+        y: number,
+      ): Partial<Pick<PointInfo, 'gradient' | 'gradientMagnitude'>> => {
+        const gradient = funcRef.current.gradient?.(x, y)
+        if (!gradient || !gradient.every(Number.isFinite)) return {}
+        const gradientMagnitude = Math.hypot(gradient[0], gradient[1])
+        if (!Number.isFinite(gradientMagnitude)) return {}
+        return { gradient, gradientMagnitude }
+      }
 
       // 1. Raycast critical points with high priority
       if (criticalPointsVisibleRef.current) {
@@ -252,13 +275,11 @@ export default function HelloSurface({
           const cpData = targetObj.userData['criticalPoint'] as
             CriticalPointData | undefined
           if (cpData) {
-            const [gx, gy] = funcRef.current.gradient(cpData.x, cpData.y)
             onPointHoverRef.current({
               x: cpData.x,
               y: cpData.y,
               z: cpData.z,
-              gradient: [gx, gy],
-              gradientMagnitude: Math.hypot(gx, gy),
+              ...gradientDetails(cpData.x, cpData.y),
               criticalPoint: cpData,
               screenX: event.clientX,
               screenY: event.clientY,
@@ -273,13 +294,11 @@ export default function HelloSurface({
       const hitSurface = surfaceHits[0]
       if (hitSurface) {
         const point = hitSurface.point
-        const [gx, gy] = funcRef.current.gradient(point.x, point.y)
         onPointHoverRef.current({
           x: point.x,
           y: point.y,
           z: point.z,
-          gradient: [gx, gy],
-          gradientMagnitude: Math.hypot(gx, gy),
+          ...gradientDetails(point.x, point.y),
           screenX: event.clientX,
           screenY: event.clientY,
         })
@@ -314,10 +333,22 @@ export default function HelloSurface({
     const scene = new Scene()
     scene.background = new Color(BG_COLOR)
 
-    const camera = new PerspectiveCamera(38, 1, 0.1, 80)
+    const domainSpan = Math.max(
+      func.domain.x.max - func.domain.x.min,
+      func.domain.y.max - func.domain.y.min,
+    )
+    const rangeSpan = func.range.max - func.range.min
+    const sceneScale = Math.max(domainSpan, rangeSpan, 1)
+    const cameraDistance = sceneScale * 2.55
+    const camera = new PerspectiveCamera(38, 1, 0.1, sceneScale * 20)
     camera.up.set(0, 0, 1)
-    camera.position.set(8.8, -10.5, 8.0)
-    camera.lookAt(0, 0, 0)
+    camera.position.set(
+      cameraDistance * 0.55,
+      -cameraDistance * 0.66,
+      cameraDistance * 0.5,
+    )
+    const targetZ = (func.range.min + func.range.max) / 2
+    camera.lookAt(0, 0, targetZ)
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setClearColor(BG_COLOR)
@@ -329,14 +360,14 @@ export default function HelloSurface({
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controlsRef.current = controls
-    controls.target.set(0, 0, 0)
+    controls.target.set(0, 0, targetZ)
     controls.enableDamping = true
     controls.dampingFactor = 0.055
     controls.autoRotate = autoRotateRef.current
     controls.autoRotateSpeed = 0.38
     controls.screenSpacePanning = false
-    controls.minDistance = 4.5
-    controls.maxDistance = 28
+    controls.minDistance = sceneScale * 0.72
+    controls.maxDistance = sceneScale * 4.5
     controls.maxPolarAngle = Math.PI * 0.85
     controls.update()
 
@@ -353,7 +384,12 @@ export default function HelloSurface({
     scene.add(rimLight)
 
     // Build scene objects decoupled from hardcoding
-    const { mesh: surfaceMesh, material: surfaceMaterial } = createSurfaceMesh(func)
+    const {
+      mesh: surfaceMesh,
+      material: surfaceMaterial,
+      diagnostics,
+    } = createSurfaceMesh(func)
+    onSurfaceDiagnosticsRef.current?.(diagnostics)
     surfaceMeshRef.current = surfaceMesh
     surfaceMaterialRef.current = surfaceMaterial
     scene.add(surfaceMesh)
@@ -467,56 +503,56 @@ export default function HelloSurface({
 function createSurfaceMesh(func: VisualizableFunction): {
   mesh: Mesh<BufferGeometry, ShaderMaterial>
   material: ShaderMaterial
+  diagnostics: SurfaceDiagnostics
 } {
-  const positions: number[] = []
-  const colors: number[] = []
-  const normals: number[] = []
-  const indices: number[] = []
-
-  const xMin = func.domain.x.min
-  const xMax = func.domain.x.max
-  const yMin = func.domain.y.min
-  const yMax = func.domain.y.max
-  const stepX = (xMax - xMin) / SEGMENTS
-  const stepY = (yMax - yMin) / SEGMENTS
+  const grid = createSurfaceGrid(func, SEGMENTS)
+  const sideLength = SEGMENTS + 1
+  const colors = new Float32Array(grid.validVertices.length * 3)
+  const normals = new Float32Array(grid.validVertices.length * 3)
   const rangeSpan = Math.max(func.range.max - func.range.min, 0.001)
 
-  for (let i = 0; i <= SEGMENTS; i += 1) {
-    const x = xMin + i * stepX
-    for (let j = 0; j <= SEGMENTS; j += 1) {
-      const y = yMin + j * stepY
-      const z = func.evaluate(x, y)
-      positions.push(x, y, z)
-
-      // Analytical normal vector using gradient:
-      // r_x = (1, 0, fx), r_y = (0, 1, fy) => n = (-fx, -fy, 1)
-      const [fx, fy] = func.gradient(x, y)
-      const nx = -fx
-      const ny = -fy
-      const nz = 1
-      const len = Math.hypot(nx, ny, nz)
-      normals.push(nx / len, ny / len, nz / len)
-
-      // Color mapping from height: cool deep indigo in valleys to warm gold/rose at peaks
-      const t = (z - func.range.min) / rangeSpan
-      const color = evaluateHeightColor(t)
-      colors.push(color.r, color.g, color.b)
+  for (let index = 0; index < grid.validVertices.length; index += 1) {
+    const x = grid.positions[index * 3]!
+    const y = grid.positions[index * 3 + 1]!
+    const valid = grid.validVertices[index] === 1
+    let [fx, fy] =
+      func.gradient?.(x, y) ??
+      estimateGridGradient(grid, Math.floor(index / sideLength), index % sideLength)
+    if (!Number.isFinite(fx) || !Number.isFinite(fy) || !valid) {
+      const estimated = estimateGridGradient(
+        grid,
+        Math.floor(index / sideLength),
+        index % sideLength,
+      )
+      fx = estimated[0]
+      fy = estimated[1]
     }
-  }
 
-  for (let i = 0; i < SEGMENTS; i += 1) {
-    for (let j = 0; j < SEGMENTS; j += 1) {
-      const a = i * (SEGMENTS + 1) + j
-      const b = a + SEGMENTS + 1
-      indices.push(a, b, a + 1, b, b + 1, a + 1)
+    let nx = -fx
+    let ny = -fy
+    let len = Math.hypot(nx, ny, 1)
+    if (!Number.isFinite(len)) {
+      nx = 0
+      ny = 0
+      len = 1
     }
+    normals[index * 3] = nx / len
+    normals[index * 3 + 1] = ny / len
+    normals[index * 3 + 2] = 1 / len
+
+    const z = grid.heights[index]!
+    const t = valid ? (z - func.range.min) / rangeSpan : 0.5
+    const color = evaluateHeightColor(t)
+    colors[index * 3] = color.r
+    colors[index * 3 + 1] = color.g
+    colors[index * 3 + 2] = color.b
   }
 
   const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
-  geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3))
-  geometry.setAttribute('color', new BufferAttribute(new Float32Array(colors), 3))
-  geometry.setIndex(indices)
+  geometry.setAttribute('position', new BufferAttribute(grid.positions, 3))
+  geometry.setAttribute('normal', new BufferAttribute(normals, 3))
+  geometry.setAttribute('color', new BufferAttribute(colors, 3))
+  geometry.setIndex(grid.indices)
 
   const material = new ShaderMaterial({
     vertexShader: SURFACE_VERTEX_SHADER,
@@ -532,7 +568,14 @@ function createSurfaceMesh(func: VisualizableFunction): {
 
   const mesh = new Mesh(geometry, material)
   mesh.name = 'surface'
-  return { mesh, material }
+  return {
+    mesh,
+    material,
+    diagnostics: {
+      invalidSampleCount: grid.invalidSampleCount,
+      totalSampleCount: grid.validVertices.length,
+    },
+  }
 }
 
 function evaluateHeightColor(t: number): Color {
@@ -650,6 +693,8 @@ function createRefinedCriticalPoints(points: CriticalPointData[]): Group {
 function createRefinedGradientField(func: VisualizableFunction): Group {
   const group = new Group()
   group.name = 'gradient-field-layer'
+  const evaluateGradient = func.gradient
+  if (!evaluateGradient) return group
 
   const spacing = 0.72
   const xMin = func.domain.x.min
@@ -677,7 +722,7 @@ function createRefinedGradientField(func: VisualizableFunction): Group {
       const y = yMin + (j + 0.5) * spacing
       if (y > yMax) continue
 
-      const [fx, fy] = func.gradient(x, y)
+      const [fx, fy] = evaluateGradient(x, y)
       const mag = Math.hypot(fx, fy)
       if (mag < 0.09) continue // Near-zero gradient (near critical points) omitted to prevent clutter
 

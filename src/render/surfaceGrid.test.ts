@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest'
+import type { VisualizableFunction } from '../core/functions/types'
+import { createSurfaceGrid } from './surfaceGrid'
+
+function sampleFunction(
+  evaluate: (x: number, y: number) => number,
+): VisualizableFunction {
+  return {
+    id: 'grid-test',
+    name: 'Função de teste',
+    formula: 'z = f(x, y)',
+    formulaPlain: 'z igual a f de x e y',
+    domain: {
+      x: { min: -1, max: 1 },
+      y: { min: -1, max: 1 },
+    },
+    domainLabel: '−1 ≤ x, y ≤ 1',
+    range: { min: -1, max: 1 },
+    evaluate,
+    criticalPoints: [],
+    analysis: [],
+  }
+}
+
+describe('createSurfaceGrid', () => {
+  it('omite células que cruzariam uma descontinuidade em 1/x', () => {
+    const grid = createSurfaceGrid(
+      sampleFunction((x) => 1 / x),
+      8,
+    )
+    const invalidIndices = Array.from(grid.validVertices, (isValid, index) =>
+      isValid ? -1 : index,
+    ).filter((index) => index >= 0)
+
+    expect(grid.invalidSampleCount).toBe(9)
+    expect(grid.indices.length).toBeGreaterThan(0)
+    expect(grid.indices.length).toBeLessThan(8 * 8 * 6)
+    expect(grid.indices.every((index) => grid.validVertices[index] === 1)).toBe(true)
+    expect(invalidIndices.every((index) => grid.positions[index * 3] === 0)).toBe(true)
+    expect([...grid.positions].every(Number.isFinite)).toBe(true)
+  })
+
+  it('deixa a região x < 0 aberta para z = sqrt(x)', () => {
+    const grid = createSurfaceGrid(
+      sampleFunction((x) => Math.sqrt(x)),
+      8,
+    )
+
+    expect(grid.invalidSampleCount).toBe(4 * 9)
+    expect(grid.indices.length).toBeGreaterThan(0)
+    for (const index of grid.indices) {
+      expect(grid.validVertices[index]).toBe(1)
+      expect(grid.positions[index * 3]).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('gera uma malha sem triângulos quando nenhum ponto tem valor real', () => {
+    const grid = createSurfaceGrid(
+      sampleFunction(() => Number.NaN),
+      4,
+    )
+
+    expect(grid.invalidSampleCount).toBe(25)
+    expect(grid.indices).toEqual([])
+    expect([...grid.positions].every(Number.isFinite)).toBe(true)
+  })
+
+  it('não envia alturas fora da faixa de representação Float32 para a GPU', () => {
+    const grid = createSurfaceGrid(
+      sampleFunction(() => 1e100),
+      2,
+    )
+
+    expect(grid.invalidSampleCount).toBe(9)
+    expect(grid.indices).toEqual([])
+    expect([...grid.positions].every(Number.isFinite)).toBe(true)
+  })
+
+  it('mantém as duas faces das células quando todos os valores são finitos', () => {
+    const grid = createSurfaceGrid(
+      sampleFunction((x, y) => x + y),
+      4,
+    )
+
+    expect(grid.invalidSampleCount).toBe(0)
+    expect(grid.indices).toHaveLength(4 * 4 * 6)
+  })
+})

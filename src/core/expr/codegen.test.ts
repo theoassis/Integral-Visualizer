@@ -42,6 +42,13 @@ describe('compileExpression', () => {
     expect(compileExpression('tg(pi/4)').evaluate()).toBeCloseTo(1)
   })
 
+  it('interpreta abreviações trigonométricas escolares sem parênteses', () => {
+    const shorthand = compileExpression('senxtany')
+
+    expect(shorthand.variables).toEqual(['x', 'y'])
+    expect(shorthand.evaluate({ x: Math.PI / 6, y: Math.PI / 4 })).toBeCloseTo(0.5)
+  })
+
   it('reconhece as constantes pi e e', () => {
     expect(compileExpression('cos(pi) + e').evaluate()).toBeCloseTo(Math.E - 1)
     expect(compileExpression('pix').evaluate({ x: 2 })).toBeCloseTo(2 * Math.PI)
@@ -52,6 +59,12 @@ describe('compileExpression', () => {
     expect(compileExpression('asin(1)').evaluate()).toBeCloseTo(Math.PI / 2)
     expect(compileExpression('atan(1)').evaluate()).toBeCloseTo(Math.PI / 4)
     expect(compileExpression('sinh(0)+cosh(0)+tanh(0)').evaluate()).toBe(1)
+  })
+
+  it('marca os polos de tan como indefinidos em vez de produzir alturas enormes', () => {
+    expect(compileExpression('tan(pi/2)').evaluate()).toBeNaN()
+    expect(compileExpression('tan(3*pi/2)').evaluate()).toBeNaN()
+    expect(compileExpression('tan(pi/4)').evaluate()).toBeCloseTo(1)
   })
 
   it('aceita as funções de dois argumentos atan2 e pow', () => {

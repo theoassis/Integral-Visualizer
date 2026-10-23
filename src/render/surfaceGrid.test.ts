@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createExpressionFunction } from '../core/functions/expressionFunction'
 import type { VisualizableFunction } from '../core/functions/types'
 import { createSurfaceGrid } from './surfaceGrid'
 
@@ -65,14 +66,23 @@ describe('createSurfaceGrid', () => {
     expect([...grid.positions].every(Number.isFinite)).toBe(true)
   })
 
-  it('não envia alturas fora da faixa de representação Float32 para a GPU', () => {
+  it('omite alturas além da faixa gráfica configurada', () => {
     const grid = createSurfaceGrid(
-      sampleFunction(() => 1e100),
+      sampleFunction(() => 1e7),
       2,
     )
 
     expect(grid.invalidSampleCount).toBe(9)
     expect(grid.indices).toEqual([])
+    expect([...grid.positions].every(Number.isFinite)).toBe(true)
+  })
+
+  it('deixa buracos nos polos de tangente da expressão senxtany', () => {
+    const grid = createSurfaceGrid(createExpressionFunction('senxtany'), 96)
+
+    expect(grid.invalidSampleCount).toBeGreaterThan(0)
+    expect(grid.indices.length).toBeLessThan(96 * 96 * 6)
+    expect(grid.indices.every((index) => grid.validVertices[index] === 1)).toBe(true)
     expect([...grid.positions].every(Number.isFinite)).toBe(true)
   })
 

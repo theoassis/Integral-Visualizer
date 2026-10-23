@@ -21,6 +21,14 @@ describe('createExpressionFunction', () => {
     expect(surface.evaluate(Math.PI / 2, Math.PI)).toBeCloseTo(-1)
   })
 
+  it('mantém a escala controlada para senxtany no domínio padrão', () => {
+    const surface = createExpressionFunction('senxtany')
+
+    expect(surface.evaluate(Math.PI / 6, Math.PI / 4)).toBeCloseTo(0.5)
+    expect(Math.abs(surface.range.min)).toBeLessThan(100)
+    expect(Math.abs(surface.range.max)).toBeLessThan(100)
+  })
+
   it('estima uma faixa finita a partir do domínio cartesiano padrão', () => {
     const paraboloid = createExpressionFunction('x^2+y^2')
 
@@ -30,6 +38,46 @@ describe('createExpressionFunction', () => {
     })
     expect(paraboloid.range.min).toBeLessThanOrEqual(0)
     expect(paraboloid.range.max).toBeGreaterThan(2 * Math.PI ** 2)
+  })
+
+  it('usa limites personalizados para o domínio e a faixa amostrada', () => {
+    const surface = createExpressionFunction(
+      'x^2+y^2',
+      {},
+      { x: { min: 0, max: 1 }, y: { min: -2, max: 2 } },
+    )
+
+    expect(surface.domain).toEqual({
+      x: { min: 0, max: 1 },
+      y: { min: -2, max: 2 },
+    })
+    expect(surface.evaluate(1, 2)).toBe(5)
+    expect(surface.domainLabel).toContain('0 ≤ x ≤ 1')
+    expect(surface.domainLabel).toContain('−2 ≤ y ≤ 2')
+  })
+
+  it('rejeita limites iguais, invertidos ou não finitos', () => {
+    expect(() =>
+      createExpressionFunction(
+        'x+y',
+        {},
+        { x: { min: 1, max: 1 }, y: { min: 0, max: 1 } },
+      ),
+    ).toThrow(/limite inferior.*menor/i)
+    expect(() =>
+      createExpressionFunction(
+        'x+y',
+        {},
+        { x: { min: 0, max: 1 }, y: { min: 2, max: -2 } },
+      ),
+    ).toThrow(/limite inferior.*menor/i)
+    expect(() =>
+      createExpressionFunction(
+        'x+y',
+        {},
+        { x: { min: Number.NEGATIVE_INFINITY, max: 1 }, y: { min: 0, max: 1 } },
+      ),
+    ).toThrow(/reais e finitos/i)
   })
 
   it('mantém NaN e infinito para a malha identificar os buracos', () => {

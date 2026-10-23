@@ -8,9 +8,9 @@
 - **Fase atual:** 1 — Fundação e superfícies
 - **Tarefa atual:** F1-T4 — mover avaliações para Web Worker com Comlink, debounce e cancelamento por id
 - **Última sessão:** 2026-10-22
-- **Estado dos testes:** `pnpm test` — 56 testes passando (4 arquivos, 0 falhas)
-- **Estado do build/tipos:** `pnpm lint`, `pnpm typecheck`, `pnpm format:check` e `pnpm build` concluídos sem erros; o Vite ainda avisa que o bundle JavaScript minificado excede 500 kB
-- **Último commit:** `feat: conecta fórmulas à superfície 3D`
+- **Estado dos testes:** `pnpm test` — 62 testes passando (4 arquivos, 0 falhas)
+- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.497,57 kB excede 500 kB
+- **Último commit:** `feat: aprimora editor científico de superfícies`
 
 ## Painel de fases
 
@@ -31,17 +31,17 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 
 ## Tarefas da fase atual
 
-| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                          |
-| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | Verificações de lint, tipos e build reportadas pelo usuário; CI informado como verde.                                                |
-| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`.                                                                                   |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ✅     | Revisão aprovada pelo usuário ao solicitar explicitamente o avanço para a Fase 1; 8 testes matemáticos passam.                       |
-| F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal. |
-| F1-T2 | Parser seguro de expressões                                | ⬜     | Próxima tarefa; implementar lista branca e testes válidos/inválidos.                                                                 |
-| F1-T3 | Campo de fórmula e superfície                              | ⬜     | Pendente.                                                                                                                            |
-| F1-T4 | Cálculo em Web Worker                                      | ⬜     | Pendente.                                                                                                                            |
-| F1-T5 | Parâmetros livres e sliders                                | ⬜     | Pendente.                                                                                                                            |
-| F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                            |
+| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                                           |
+| ----- | ---------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | Verificações de lint, tipos e build reportadas pelo usuário; CI informado como verde.                                                                 |
+| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`.                                                                                                    |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ✅     | Revisão aprovada pelo usuário ao solicitar explicitamente o avanço para a Fase 1; 8 testes matemáticos passam.                                        |
+| F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal.                  |
+| F1-T2 | Parser seguro de expressões                                | ✅     | Commit `3b63752`; lista branca, aliases, rejeição de nós perigosos e testes. A sessão atual corrige a notação escolar concatenada `senxtany`.         |
+| F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha. |
+| F1-T4 | Cálculo em Web Worker                                      | ⬜     | Próxima tarefa: Worker, Comlink, debounce e cancelamento por id.                                                                                      |
+| F1-T5 | Parâmetros livres e sliders                                | 🟨     | Slider básico de parâmetro entregue em F1-T3; controles de animação e refinamentos ainda pendentes.                                                   |
+| F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                                             |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -78,15 +78,15 @@ Marque conforme forem implementados **e passando**.
 
 ## Pendências de revisão matemática `[REVISAR-MATEMATICA]`
 
-| #   | Data       | Dúvida / escolha                                                                                                                                                                                                      | Contexto (fórmula, arquivo)                                                       | Resposta do revisor |
-| --- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------- |
-| 1   | 2026-10-15 | O método de estimar mínimo/máximo de cada célula amostrando 5×5 pontos não garante somas inferior/superior verdadeiras. Definir no app se serão chamadas de estimativas amostradas ou se haverá limites certificados. | Plano, seção 10.3; guia de revisão, seção 4 afirma `inferior ≤ exato ≤ superior`. | Pendente            |
+| #   | Data       | Dúvida / escolha                                                                                                                                                                                                                                                                                                        | Contexto (fórmula, arquivo)                         | Resposta do revisor                                             |
+| --- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| 1   | 2026-10-15 | Mínimos e máximos observados em uma grade finita não certificam somas inferior/superior nem garantem que cerquem a integral exata. Até existir um método certificado, rotular como estimativas amostradas e explicar essa limitação; só afirmar `inferior ≤ exato ≤ superior` quando a implementação provar os limites. | Plano, seção 10.3; tarefas F2-T3 e guia de revisão. | Decisão segura registrada; aguarda revisão do usuário na Fase 2 |
 
 ## Ambiguidades e riscos encontrados na leitura inicial
 
-- **Segurança do parser:** a divergência entre as seções 9 e 17 do plano foi resolvida no ADR-001 em favor de interpretar uma AST com lista branca, sem `eval`/`new Function`. Na implementação F1-T2, ainda será necessário validar cada nó e impedir propriedades herdadas.
+- **Segurança do parser:** a divergência entre as seções 9 e 17 do plano foi resolvida no ADR-001 em favor de interpretar uma AST com lista branca, sem `eval`/`new Function`; F1-T2 cobre a validação de nós e propriedades herdadas.
 - **Escopo da Fase 2:** a tarefa F2-T2 pede A1–A3 e descreve integral retangular; a tabela de roadmap inclui A1–A4, mas A4 é integral polar e aparece de novo na Fase 3. Confirmar a fase de A4 ao detalhar tarefas.
-- **Rótulos “inferior/superior”:** a amostragem proposta não certifica o ínfimo/supremo da função em cada célula, portanto o critério de revisão atual é mais forte que o método descrito.
+- **Rótulos “inferior/superior”:** mantê-los como estimativas amostradas sem garantia até que intervalos certificados sejam implementados; atualizar o critério em `PROMPTS_FASES.md` e `REVISAO_MATEMATICA.md`.
 - **Compatibilidade de ferramentas:** TypeScript 7.0.2 não atendia ao peer range do `typescript-eslint` 8.71.2. A base usa TypeScript 5.9.3, dentro do peer range publicado.
 
 ## Decisões tomadas (ADR resumido)
@@ -114,11 +114,12 @@ Marque conforme forem implementados **e passando**.
 
 ## Problemas conhecidos / dívida técnica
 
-- O build gera um chunk inicial de 781,95 kB minificado devido ao Three.js; reavaliar divisão de código quando a aplicação crescer.
+- O build mais recente gera um chunk inicial de 1.497,40 kB minificado (Three.js e math.js); o Vite avisa acima de 500 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
 
 ## Ideias para o backlog (não implementar agora)
 
-- Tutor matemático passo a passo: receber exercícios de cálculo e equações, identificar um método dentro do escopo suportado, gerar uma sequência de transformações matemáticas verificáveis e explicar cada etapa em pt-BR. Arquitetura futura híbrida: algoritmos/CAS produzem e validam os passos; a camada de IA adapta a explicação e conduz a aprendizagem; a interface relaciona cada etapa às mudanças na visualização. Começar por tópicos delimitados (derivadas e pontos críticos, integrais e EDOs); deixar resolução neural de EDPs/PINNs para uma etapa posterior, com condições de contorno e estimativa de erro. Ideia registrada em 2026-10-16; não altera o escopo da F0-T3.
+- Editor científico: ampliar o teclado virtual para a lista branca e permitir limites de domínio editáveis na F1; preservar entrada explícita e segurança do parser. O teclado atual cria somente expressões escalares `z=f(x,y)`; operadores de derivada e integral só devem aparecer como ferramentas funcionais quando os módulos correspondentes estiverem prontos.
+- Resolução passo a passo para qualquer expressão: avançar por etapas verificáveis — derivadas e Hessiana na Fase 4; integrais duplas nas Fases 2–3; triplas na Fase 5; EDOs na Fase 6; integrais de linha/superfície e teoremas na Fase 9. Um tutor neural futuro pode explicar resultados, mas cada transformação e valor deve ser calculado/validado por algoritmos determinísticos ou CAS. Não usar texto gerado por rede como prova matemática.
 
 ## Log de sessões
 
@@ -242,3 +243,23 @@ Marque conforme forem implementados **e passando**.
   - Prévia local conferida por interação real com fórmula, erro, buracos e slider; console sem erros.
 - **Não verificado:** revisão matemática/visual independente do usuário; desempenho em dispositivo móvel físico ou GPU restrita. Avaliações continuam na thread principal nesta tarefa; a F1-T4 moverá o cálculo para Worker.
 - **Próximo passo:** F1-T4 — Worker via Comlink, debounce e cancelamento por id de job. Não avançar para a Fase 2 até terminar a Fase 1 e passar pelo portão de revisão matemática.
+
+### Sessão 8
+
+- **Data:** 2026-10-22
+- **Tarefa:** Adendo à F1-T3 após revisão do usuário: limites configuráveis, teclado científico e correção da notação `senxtany`.
+- **Feito:**
+  1. Reproduzido o defeito: o parser interpretava `senxtany` como produto das letras/parâmetros `s·e·n·x·t·a·n·y`, em vez de `sen(x)·tan(y)`.
+  2. Adicionada normalização segura de abreviações trigonométricas escolares sem parênteses; a expressão passa a usar somente as variáveis `x` e `y`.
+  3. Os polos de tangente em `π/2 + kπ` agora são indefinidos (`NaN`), corrigindo o valor finito espúrio que `Math.tan` retorna por arredondamento de ponto flutuante. Alturas acima de `10⁶` também são omitidas da faixa e da malha para preservar a escala visual; a função analítica não é alterada.
+  4. Adicionados limites editáveis para x e y (reais, finitos, ordenados e limitados a `|limite| ≤ 10⁴`), teclado científico para a lista branca e atualização da faixa amostrada/enquadramento.
+  5. A análise de função customizada mostra a avaliação no centro do domínio e explica como a malha é construída, sem alegar derivação simbólica. As operações diferenciais e integrais foram organizadas nas fases do plano.
+  6. `senxtany` no domínio `[-π,π]²` agora mostra dois polos de y como duas colunas de buracos (194 amostras em malha 97×97), com escala da cena `[-10.97, 10.97]` e sem erro no console.
+  7. Corrigidos status antigos na tabela de tarefas e o guia matemático: extremos de grade serão rotulados como estimativas amostradas, sem garantia de cercar o exato.
+- **Verificações executadas:**
+  - Inicial: `pnpm typecheck` passou; `pnpm test` passou com 56 testes.
+  - Direcionados: 54 testes passaram em 3 arquivos.
+  - Final: `pnpm lint`, `pnpm typecheck`, `pnpm test` (62 testes, 4 arquivos), `pnpm format:check` e `pnpm build` passaram; Vite emitiu aviso para chunk minificado de 1.497,57 kB.
+  - Prévia local: inserção pelo teclado gerou `sen(x)*tan(y)`; limites `[0,1]×[0,1]` foram aplicados a `x²+y²`, com `z=0,5` no centro e faixa visual `[-0,08, 2,08]`; `senxtany` não gerou sliders espúrios, mostrou 194 buracos e não teve erro no console.
+- **Não verificado:** inspeção em GPU móvel; derivação simbólica algébrica genérica. O painel atual explica a avaliação e geração da malha, não fornece uma sequência de identidades algébricas. O portão de revisão matemática da Fase 1 continua pendente até F1-T6.
+- **Próximo passo:** F1-T4 — mover as avaliações para Web Worker com Comlink, debounce e cancelamento por id; manter expresso o limite visual `10⁶` e documentar os buracos em resultados fora da faixa.

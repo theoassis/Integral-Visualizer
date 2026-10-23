@@ -66,7 +66,11 @@ const FUNCTION_DEFINITIONS = new Map<string, FunctionDefinition>([
   ],
   [
     'tan',
-    { minArguments: 1, maxArguments: 1, evaluate: ([x]) => Math.tan(x ?? Number.NaN) },
+    {
+      minArguments: 1,
+      maxArguments: 1,
+      evaluate: ([x]) => evaluateTangent(x ?? Number.NaN),
+    },
   ],
   [
     'asin',
@@ -165,6 +169,32 @@ const FUNCTION_ALIASES = new Map<string, string>([
   ['sen', 'sin'],
   ['tg', 'tan'],
 ])
+const SHORTHAND_FUNCTIONS = [
+  'atan2',
+  'sinh',
+  'cosh',
+  'tanh',
+  'asin',
+  'acos',
+  'atan',
+  'sqrt',
+  'abs',
+  'exp',
+  'log',
+  'sin',
+  'cos',
+  'tan',
+  'sen',
+  'tg',
+]
+
+function evaluateTangent(value: number): number {
+  const poleIndex = Math.round((value - Math.PI / 2) / Math.PI)
+  const pole = Math.PI / 2 + poleIndex * Math.PI
+  const poleTolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 4
+  if (Math.abs(value - pole) <= poleTolerance) return Number.NaN
+  return Math.tan(value)
+}
 
 type CompileContext = {
   readonly variables: Set<string>
@@ -370,6 +400,60 @@ function parseSyntaxError(error: unknown): ExpressionError {
   )
 }
 
+function shorthandCallAt(
+  source: string,
+  start: number,
+): { name: string; argument: string; end: number } | undefined {
+  const name = SHORTHAND_FUNCTIONS.find((candidate) =>
+    source.startsWith(candidate, start),
+  )
+  if (!name) return undefined
+
+  let argumentStart = start + name.length
+  while (/\s/.test(source[argumentStart] ?? '') && argumentStart < source.length) {
+    argumentStart += 1
+  }
+  if (source[argumentStart] === '(') return undefined
+
+  const argument = source[argumentStart]
+  if (!argument || !/^[a-z]$/i.test(argument)) return undefined
+
+  let next = argumentStart + 1
+  while (/\s/.test(source[next] ?? '') && next < source.length) next += 1
+  const atEnd = next >= source.length
+  const atOperator = /[+\-*/^),]/.test(source[next] ?? '')
+  const followedByFunction = SHORTHAND_FUNCTIONS.some((candidate) =>
+    source.startsWith(candidate, next),
+  )
+  if (!atEnd && !atOperator && !followedByFunction) return undefined
+
+  return { name, argument, end: argumentStart + 1 }
+}
+
+/** Converts common school notation such as `sen x tan y` to explicit calls. */
+function normalizeFunctionShorthand(source: string): string {
+  let normalized = ''
+  let previousWasShorthand = false
+
+  for (let index = 0; index < source.length;) {
+    const call = shorthandCallAt(source, index)
+    if (call) {
+      if (previousWasShorthand) normalized += '*'
+      normalized += `${call.name}(${call.argument})`
+      index = call.end
+      previousWasShorthand = true
+      continue
+    }
+
+    const character = source[index]!
+    normalized += character
+    if (!/\s/.test(character)) previousWasShorthand = false
+    index += 1
+  }
+
+  return normalized
+}
+
 export function compileExpression(source: string): CompiledExpression {
   if (source.length > MAX_SOURCE_LENGTH) {
     throw new ExpressionError(
@@ -385,7 +469,7 @@ export function compileExpression(source: string): CompiledExpression {
 
   let root: MathNode
   try {
-    root = parse(expression)
+    root = parse(normalizeFunctionShorthand(expression))
   } catch (error) {
     throw parseSyntaxError(error)
   }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { FormEvent } from 'react'
 import HelloSurface from '../render/HelloSurface'
 import type { PointInfo, SurfaceDiagnostics } from '../render/HelloSurface'
@@ -13,6 +13,59 @@ import { MathText, MFn, MVar, MathBlock } from './MathView'
 
 const fn = sinCosFunction
 const DEFAULT_EXPRESSION = 'sin(x)*cos(y)'
+const DEFAULT_DOMAIN_DRAFT = {
+  xMin: String(-Math.PI),
+  xMax: String(Math.PI),
+  yMin: String(-Math.PI),
+  yMax: String(Math.PI),
+}
+const CALCULATOR_KEYS = [
+  { label: 'sen(', token: 'sen(' },
+  { label: 'cos(', token: 'cos(' },
+  { label: 'tan(', token: 'tan(' },
+  { label: '√(', token: 'sqrt(' },
+  { label: 'asin(', token: 'asin(' },
+  { label: 'acos(', token: 'acos(' },
+  { label: 'atan(', token: 'atan(' },
+  { label: 'atan2(', token: 'atan2(' },
+  { label: 'sinh(', token: 'sinh(' },
+  { label: 'cosh(', token: 'cosh(' },
+  { label: 'tanh(', token: 'tanh(' },
+  { label: 'exp(', token: 'exp(' },
+  { label: 'tg(', token: 'tg(' },
+  { label: 'abs(', token: 'abs(' },
+  { label: 'log(', token: 'log(' },
+  { label: 'ln(', token: 'ln(' },
+  { label: 'min(', token: 'min(' },
+  { label: 'max(', token: 'max(' },
+  { label: 'pow(', token: 'pow(' },
+  { label: 'floor(', token: 'floor(' },
+  { label: 'π', token: 'pi' },
+  { label: 'e', token: 'e' },
+  { label: 'x', token: 'x' },
+  { label: 'y', token: 'y' },
+  { label: '(', token: '(' },
+  { label: ')', token: ')' },
+  { label: ',', token: ',' },
+  { label: '^', token: '^' },
+  { label: '÷', token: '/' },
+  { label: '7', token: '7' },
+  { label: '8', token: '8' },
+  { label: '9', token: '9' },
+  { label: '×', token: '*' },
+  { label: '4', token: '4' },
+  { label: '5', token: '5' },
+  { label: '6', token: '6' },
+  { label: '−', token: '-' },
+  { label: '1', token: '1' },
+  { label: '2', token: '2' },
+  { label: '3', token: '3' },
+  { label: '+', token: '+' },
+  { label: '0', token: '0' },
+  { label: '.', token: '.' },
+  { label: '⌫', token: 'backspace' },
+  { label: 'C', token: 'clear' },
+]
 
 const axisLegend = [
   { axis: 'x', color: 'axis-x', direction: 'horizontal' },
@@ -30,6 +83,7 @@ export default function App() {
   const [activeFunction, setActiveFunction] = useState<VisualizableFunction>(fn)
   const [parameterValues, setParameterValues] = useState<Record<string, number>>({})
   const [formulaDraft, setFormulaDraft] = useState(DEFAULT_EXPRESSION)
+  const [domainDraft, setDomainDraft] = useState(DEFAULT_DOMAIN_DRAFT)
   const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
   const [formulaError, setFormulaError] = useState<string | null>(null)
   const [surfaceDiagnostics, setSurfaceDiagnostics] =
@@ -43,6 +97,7 @@ export default function App() {
     'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
   >(null)
   const [hoveredPoint, setHoveredPoint] = useState<PointInfo | null>(null)
+  const formulaInputRef = useRef<HTMLInputElement>(null)
 
   const handlePointHover = useCallback((info: PointInfo | null) => {
     setHoveredPoint(info)
@@ -55,13 +110,28 @@ export default function App() {
   const handleApplyFormula = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     try {
+      const domain = {
+        x: {
+          min: Number.parseFloat(domainDraft.xMin),
+          max: Number.parseFloat(domainDraft.xMax),
+        },
+        y: {
+          min: Number.parseFloat(domainDraft.yMin),
+          max: Number.parseFloat(domainDraft.yMax),
+        },
+      }
       const parameters = getExpressionParameters(formulaDraft)
       const nextParameterValues = Object.fromEntries(
         parameters.map((name) => [name, 1]),
       )
-      const nextFunction = createExpressionFunction(formulaDraft, nextParameterValues)
+      const nextFunction = createExpressionFunction(
+        formulaDraft,
+        nextParameterValues,
+        domain,
+      )
       setActiveFunction(nextFunction)
       setParameterValues(nextParameterValues)
+      setFormulaDraft(nextFunction.formulaPlain.replace(/^z =\s*/, ''))
       setAppliedExpression(formulaDraft.trim())
       setFormulaError(null)
       setSurfaceDiagnostics(null)
@@ -81,6 +151,7 @@ export default function App() {
     setActiveFunction(fn)
     setParameterValues({})
     setFormulaDraft(DEFAULT_EXPRESSION)
+    setDomainDraft(DEFAULT_DOMAIN_DRAFT)
     setAppliedExpression(null)
     setFormulaError(null)
     setSurfaceDiagnostics(null)
@@ -93,8 +164,39 @@ export default function App() {
     const nextValues = { ...parameterValues, [name]: value }
     setParameterValues(nextValues)
     if (appliedExpression) {
-      setActiveFunction(createExpressionFunction(appliedExpression, nextValues))
+      setActiveFunction(
+        createExpressionFunction(appliedExpression, nextValues, activeFunction.domain),
+      )
     }
+  }
+
+  const insertCalculatorToken = (token: string) => {
+    const input = formulaInputRef.current
+    const start = input?.selectionStart ?? formulaDraft.length
+    const end = input?.selectionEnd ?? formulaDraft.length
+    let inserted = token
+    let nextDraft: string
+    let cursor = start
+
+    if (token === 'clear') {
+      nextDraft = ''
+      inserted = ''
+    } else if (token === 'backspace') {
+      const from = start === end ? Math.max(0, start - 1) : start
+      nextDraft = formulaDraft.slice(0, from) + formulaDraft.slice(end)
+      inserted = ''
+      cursor = from
+    } else {
+      nextDraft = formulaDraft.slice(0, start) + token + formulaDraft.slice(end)
+    }
+
+    setFormulaDraft(nextDraft)
+    setFormulaError(null)
+    if (token !== 'backspace') cursor = start + inserted.length
+    requestAnimationFrame(() => {
+      formulaInputRef.current?.focus()
+      formulaInputRef.current?.setSelectionRange(cursor, cursor)
+    })
   }
 
   const handleHighlight = useCallback(
@@ -148,7 +250,7 @@ export default function App() {
           <h1>{isCustomFunction ? 'Função personalizada' : 'Seno × cosseno'}</h1>
           <p className="panel-description">
             {isCustomFunction
-              ? 'A expressão aplicada é desenhada sobre o domínio cartesiano padrão.'
+              ? 'A expressão aplicada é desenhada sobre o domínio configurado.'
               : 'Uma função de duas variáveis, explorada em três dimensões.'}
           </p>
 
@@ -161,6 +263,7 @@ export default function App() {
                 <span aria-hidden="true">z =</span>
                 <input
                   id="formula-input"
+                  ref={formulaInputRef}
                   name="formula"
                   type="text"
                   value={formulaDraft}
@@ -177,8 +280,83 @@ export default function App() {
                 <button type="submit">Aplicar</button>
               </div>
               <p id="formula-help" className="formula-help">
-                Use x e y, operações + − × ÷ ^ e funções da lista matemática.
+                Escreva a função ou use o teclado científico. Trigonometria em radianos.
               </p>
+              <div
+                className="scientific-calculator"
+                aria-label="Teclado de calculadora científica"
+              >
+                {CALCULATOR_KEYS.map(({ label, token }) => (
+                  <button
+                    className={
+                      ['clear', 'backspace'].includes(token) ? 'key utility-key' : 'key'
+                    }
+                    key={`${label}-${token}`}
+                    type="button"
+                    aria-label={
+                      token === 'backspace'
+                        ? 'Apagar caractere'
+                        : token === 'clear'
+                          ? 'Limpar fórmula'
+                          : `Inserir ${label}`
+                    }
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => insertCalculatorToken(token)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <fieldset className="domain-controls">
+                <legend>Domínio de exploração</legend>
+                <label>
+                  x mínimo
+                  <input
+                    type="number"
+                    step="any"
+                    value={domainDraft.xMin}
+                    onChange={(event) =>
+                      setDomainDraft({ ...domainDraft, xMin: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  x máximo
+                  <input
+                    type="number"
+                    step="any"
+                    value={domainDraft.xMax}
+                    onChange={(event) =>
+                      setDomainDraft({ ...domainDraft, xMax: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  y mínimo
+                  <input
+                    type="number"
+                    step="any"
+                    value={domainDraft.yMin}
+                    onChange={(event) =>
+                      setDomainDraft({ ...domainDraft, yMin: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  y máximo
+                  <input
+                    type="number"
+                    step="any"
+                    value={domainDraft.yMax}
+                    onChange={(event) =>
+                      setDomainDraft({ ...domainDraft, yMax: event.target.value })
+                    }
+                  />
+                </label>
+                <small>
+                  Limites finitos, com inferior menor que superior (|limite| ≤ 10.000).
+                </small>
+              </fieldset>
               {formulaError && (
                 <p id="formula-error" className="formula-error" role="alert">
                   {formulaError} A superfície anterior foi mantida.
@@ -464,8 +642,38 @@ export default function App() {
             <div className="analysis-placeholder" role="status">
               <span className="card-label">EXPRESSÃO APLICADA</span>
               <p>
-                A superfície representa a fórmula digitada. A análise simbólica e a
-                classificação de pontos críticos serão conectadas em etapas posteriores.
+                <strong>1. Defina:</strong> z = f(x, y) sobre o domínio informado.
+                <br />
+                <strong>2. Avalie:</strong> no centro do domínio, x ={' '}
+                {formatNum(
+                  (activeFunction.domain.x.min + activeFunction.domain.x.max) / 2,
+                )}{' '}
+                e y ={' '}
+                {formatNum(
+                  (activeFunction.domain.y.min + activeFunction.domain.y.max) / 2,
+                )}
+                , a altura é z ={' '}
+                {Number.isFinite(
+                  activeFunction.evaluate(
+                    (activeFunction.domain.x.min + activeFunction.domain.x.max) / 2,
+                    (activeFunction.domain.y.min + activeFunction.domain.y.max) / 2,
+                  ),
+                )
+                  ? formatNum(
+                      activeFunction.evaluate(
+                        (activeFunction.domain.x.min + activeFunction.domain.x.max) / 2,
+                        (activeFunction.domain.y.min + activeFunction.domain.y.max) / 2,
+                      ),
+                    )
+                  : 'sem valor real finito'}
+                .
+                <br />
+                <strong>3. Construa:</strong> a cena avalia a função em cada vértice da
+                malha e liga pontos vizinhos válidos; pontos sem valor real ficam como
+                buracos.
+                <br />
+                Derivadas simbólicas, gradiente e integrais serão acrescentados nos
+                módulos de cálculo correspondentes.
               </p>
             </div>
           ) : (

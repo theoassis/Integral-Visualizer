@@ -112,6 +112,13 @@ Use as convenções da seção 6 do CLAUDE.md nos ADRs sem alterá-las.
 - F1-T5: parâmetros livres → sliders automáticos; animação do parâmetro.
 - F1-T6: mapas de cor, normais analíticas, picking (clicar mostra x, y, f).
 
+**Adendo aprovado pelo revisor do projeto (2026-10-22):** o editor da superfície deve oferecer teclado
+científico para a lista branca, limites editáveis de x e y e aceitar abreviações inequívocas como
+`senxtany` = `sen(x)·tan(y)`. As teclas devem inserir sintaxe explícita e a prévia deve continuar mostrando
+a expressão aplicada. Nesta fase, o teclado compõe funções escalares para superfícies; não apresentar
+derivadas ou integrais como se já fossem calculadas. A resolução simbólica e as ferramentas de cálculo
+seguem nas fases abaixo.
+
 **Testes obrigatórios:** casos válidos/ inválidos do parser; fuzz simples garantindo que nada fora da lista branca executa;
 avaliação de `sin(x)*cos(y)` em pontos conhecidos.
 
@@ -161,7 +168,9 @@ Ao fim de F1-T6, abra o portão de revisão (seção 8 do CLAUDE.md) com a tabel
 - `x*y` em [0,1]×[0,1], ponto médio: S(n) → 0,25. Com n=1 já dá exatamente 0,25 (conta: f(0,5; 0,5)·1 = 0,25, pois x·y é bilinear).
 - `x^2+y^2` em [0,1]²: valor exato 2/3 ≈ 0,6667.
 - Soma **esquerda** de função crescente: **subestima**; soma **direita**: **superestima**. Conferir no app.
-- Soma inferior ≤ valor exato ≤ soma superior, sempre.
+- Mínimo/máximo entre amostras não certifica limites da função em toda a célula. Enquanto não houver
+  limites certificados, identificar esses resultados como **estimativas inferior/superior amostradas**,
+  informar que podem não cercar o valor exato e nunca afirmar `inferior ≤ exato ≤ superior` sem prova.
 - Ao dobrar n, o erro do ponto médio cai ≈ 4× e o da esquerda ≈ 2×.
 - Altura dos prismas = f no ponto de amostra; área da base = Δx·Δy; soma de todos os volumes = S exibido.
 - Função negativa: prismas para baixo, contribuição negativa.
@@ -171,7 +180,9 @@ Ao fim de F1-T6, abra o portão de revisão (seção 8 do CLAUDE.md) com a tabel
 ```
 Fase 2. Siga F2-T1 a F2-T6. Em cada tarefa matemática, escreva primeiro o teste com o valor exato do CLAUDE.md/plano
 (A1, A2, A3) e a verificação de ordem de convergência. Não relaxe tolerâncias. No portão, mostre as somas
-esquerda/direita/inferior/superior lado a lado para x*y e x^2+y^2 e a tabela de erro por n.
+esquerda/direita e os extremos amostrados para x*y e x^2+y^2, identificando claramente quais resultados são
+estimativas sem certificação. Nunca exiba a desigualdade inferior ≤ exato ≤ superior como garantia até implementar
+um método de limites rigorosos. Inclua a tabela de erro por n.
 ```
 
 ---

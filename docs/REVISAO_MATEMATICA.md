@@ -52,7 +52,9 @@ O maior risco de um projeto assim é um gráfico bonito com um número errado. S
 ### Fase 2 — Integral dupla retangular
 
 - [ ] `x*y` em [0,1]²: valor 1/4. `x^2+y^2` em [0,1]²: 2/3. `sin(x)*sin(y)` em [0,π]²: 4.
-- [ ] Soma esquerda de função crescente subestima; direita superestima; inferior ≤ exato ≤ superior.
+- [ ] Para funções crescentes, a soma esquerda subestima e a direita superestima quando as hipóteses se aplicam.
+- [ ] Extremos encontrados por amostragem são apenas estimativas; não aceite a garantia inferior ≤ exato ≤ superior
+      sem um método que certifique limites em toda a célula.
 - [ ] Ao dobrar n: erro do ponto médio ÷4; da esquerda ÷2.
 - [ ] Prismas: altura = f(ponto de amostra); soma dos volumes = S mostrado.
 

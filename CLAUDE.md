@@ -73,6 +73,7 @@ O projeto segue as fases do plano (0 a 9). Cada fase é dividida em **tarefas pe
   sqrt, abs, min, max, pow, floor, pi, e. Aceitar também `sen` e `tg` como sinônimos.
 - **Variáveis de uma letra.** `xy` significa x·y. Parâmetros livres viram sliders.
 - **Valores não finitos** (NaN, ±Infinity) viram "buraco" na malha e geram aviso, nunca "paredes" falsas.
+- **Extremos amostrados não são limites certificados.** Identificar estimativas inferior/superior amostradas como aproximações e não afirmar que cercam o valor exato sem um método de certificação.
 - **Gradiente:** preferir derivada simbólica; verificar contra diferenças finitas nos testes.
 
 ## 7. Regras de qualidade (inegociáveis)

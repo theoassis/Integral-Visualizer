@@ -1,6 +1,5 @@
 import type { VisualizableFunction } from '../core/functions/types'
-
-const MAX_FLOAT32 = 3.4028234663852886e38
+import { MAX_SURFACE_HEIGHT } from '../core/functions/constants'
 
 export interface SurfaceGrid {
   readonly segments: number
@@ -38,7 +37,7 @@ export function createSurfaceGrid(
       const y = yDomain.min + j * stepY
       const index = i * sideLength + j
       const height = func.evaluate(x, y)
-      const valid = Number.isFinite(height) && Math.abs(height) <= MAX_FLOAT32
+      const valid = Number.isFinite(height) && Math.abs(height) <= MAX_SURFACE_HEIGHT
 
       positions[index * 3] = x
       positions[index * 3 + 1] = y

@@ -514,9 +514,83 @@ button {
 }
 
 .formula-input-row button:focus-visible,
-.restore-example-button:focus-visible {
+.restore-example-button:focus-visible,
+.scientific-calculator button:focus-visible {
   outline: 2px solid var(--accent-blue-light);
   outline-offset: 2px;
+}
+
+.scientific-calculator {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #101419;
+}
+
+.scientific-calculator .key {
+  min-height: 1.85rem;
+  padding: 0.25rem 0.2rem;
+  border: 1px solid #303a40;
+  border-radius: 0.25rem;
+  color: var(--text-primary);
+  background: #1b2429;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.scientific-calculator .key:hover {
+  border-color: #70898a;
+  background: #29373b;
+}
+
+.scientific-calculator .utility-key {
+  color: #e5c394;
+}
+
+.domain-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.2rem 0 0;
+  padding: 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.domain-controls legend {
+  padding: 0 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+}
+
+.domain-controls label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.domain-controls input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #303a40;
+  border-radius: 0.22rem;
+  color: var(--text-primary);
+  background: #0c1116;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.domain-controls small {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.59rem;
+  line-height: 1.4;
 }
 
 .formula-help,
@@ -626,6 +700,10 @@ button {
   color: var(--text-secondary);
   font-size: 0.76rem;
   line-height: 1.6;
+}
+
+.analysis-placeholder strong {
+  color: var(--text-primary);
 }
 
 /* ================================================================== */

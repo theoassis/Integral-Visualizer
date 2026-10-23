@@ -10,7 +10,7 @@ describe('createExpressionFunction', () => {
     expect(paraboloid.evaluate(1, 2)).toBe(5)
     expect(paraboloid.criticalPoints).toEqual([])
     expect(paraboloid.analysis).toEqual([])
-    expect(paraboloid.gradient).toBeUndefined()
+    expect(paraboloid.gradient?.(1, 2)).toEqual([2, 4])
   })
 
   it('preserva os valores de referência da caixa de ovos', () => {
@@ -25,6 +25,10 @@ describe('createExpressionFunction', () => {
     const surface = createExpressionFunction('senxtany')
 
     expect(surface.evaluate(Math.PI / 6, Math.PI / 4)).toBeCloseTo(0.5)
+    expect(surface.gradient?.(Math.PI / 6, Math.PI / 4)[0]).toBeCloseTo(
+      Math.sqrt(3) / 2,
+    )
+    expect(surface.gradient?.(Math.PI / 6, Math.PI / 4)[1]).toBeCloseTo(1)
     expect(Math.abs(surface.range.min)).toBeLessThan(100)
     expect(Math.abs(surface.range.max)).toBeLessThan(100)
   })

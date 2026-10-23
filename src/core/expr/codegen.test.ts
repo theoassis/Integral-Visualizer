@@ -37,6 +37,51 @@ describe('compileExpression', () => {
     )
   })
 
+  it('calcula gradientes analíticos por derivação simbólica', () => {
+    const surface = compileExpression('sin(x)*cos(y)')
+    const gradient = surface.gradient({ x: Math.PI / 4, y: Math.PI / 3 })
+
+    expect(gradient[0]).toBeCloseTo(Math.SQRT2 / 4)
+    expect(gradient[1]).toBeCloseTo(-Math.sqrt(6) / 4)
+  })
+
+  it('diferencia o produto implícito e parâmetros livres', () => {
+    const product = compileExpression('xy').gradient({ x: 3, y: 4 })
+    const parameterized = compileExpression('sin(a*x)').gradient({ a: 2, x: 0.3 })
+
+    expect(product).toEqual([4, 3])
+    expect(parameterized[0]).toBeCloseTo(2 * Math.cos(0.6))
+    expect(parameterized[1]).toBe(0)
+  })
+
+  it('deriva potências e tangente usando regras analíticas', () => {
+    expect(compileExpression('x^2+y^2').gradient({ x: 1, y: 2 })).toEqual([2, 4])
+    expect(compileExpression('tan(x)').gradient({ x: 0.2 })[0]).toBeCloseTo(
+      1 / Math.cos(0.2) ** 2,
+    )
+  })
+
+  it('confere derivadas simbólicas com diferenças finitas centrais', () => {
+    const expression = compileExpression('exp(-x^2)*sin(y)+log(x+2)')
+    const x = 0.4
+    const y = -0.7
+    const h = 1e-5
+    const gradient = expression.gradient({ x, y })
+    const dx =
+      (expression.evaluate({ x: x + h, y }) - expression.evaluate({ x: x - h, y })) /
+      (2 * h)
+    const dy =
+      (expression.evaluate({ x, y: y + h }) - expression.evaluate({ x, y: y - h })) /
+      (2 * h)
+
+    expect(gradient[0]).toBeCloseTo(dx, 6)
+    expect(gradient[1]).toBeCloseTo(dy, 6)
+  })
+
+  it('não inventa gradiente analítico quando uma função não tem regra suportada', () => {
+    expect(compileExpression('floor(x)+y').gradient).toBeUndefined()
+  })
+
   it('aceita os aliases em português sen e tg', () => {
     expect(compileExpression('sen(pi/2)').evaluate()).toBeCloseTo(1)
     expect(compileExpression('tg(pi/4)').evaluate()).toBeCloseTo(1)
@@ -128,6 +173,7 @@ describe('compileExpression', () => {
     expect(() => compileExpression('danger(1)')).toThrow(
       /Função "danger" não permitida/,
     )
+    expect(() => compileExpression('sec(x)')).toThrow(/Função "sec" não permitida/)
   })
 
   it('rejeita quantidade incorreta de argumentos', () => {

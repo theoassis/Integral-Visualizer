@@ -95,4 +95,21 @@ describe('createSurfaceGrid', () => {
     expect(grid.invalidSampleCount).toBe(0)
     expect(grid.indices).toHaveLength(4 * 4 * 6)
   })
+
+  it('guarda derivadas analíticas por vértice para construir as normais', () => {
+    const func = sampleFunction((x, y) => x ** 2 + y ** 2)
+    func.gradient = (x, y) => [2 * x, 2 * y]
+    const grid = createSurfaceGrid(func, 2)
+    const vertexIndex = 2 * 3
+
+    expect(grid.gradientX[vertexIndex]).toBe(2)
+    expect(grid.gradientY[vertexIndex]).toBe(-2)
+  })
+
+  it('deixa derivadas ausentes marcadas para o fallback de diferenças finitas', () => {
+    const grid = createSurfaceGrid(createExpressionFunction('floor(x)+y'), 2)
+
+    expect([...grid.gradientX].every(Number.isNaN)).toBe(true)
+    expect([...grid.gradientY].every(Number.isNaN)).toBe(true)
+  })
 })

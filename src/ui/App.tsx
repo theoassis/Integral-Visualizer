@@ -11,6 +11,7 @@ import {
 import type { VisualizableFunction } from '../core/functions'
 import type { SurfaceGrid } from '../render/surfaceGrid'
 import { SURFACE_SEGMENTS } from '../render/surfaceGrid'
+import { SURFACE_COLOR_MAPS, type SurfaceColorMap } from '../render/colorMaps'
 import type {
   SurfaceCalculationRequest,
   SurfaceCalculationResult,
@@ -24,61 +25,79 @@ import {
 } from './parameterAnimation'
 import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
+import { parseDomainBound } from './domainBound'
 
 const fn = sinCosFunction
 const DEFAULT_EXPRESSION = 'sin(x)*cos(y)'
 const DEFAULT_DOMAIN_DRAFT = {
-  xMin: String(-Math.PI),
-  xMax: String(Math.PI),
-  yMin: String(-Math.PI),
-  yMax: String(Math.PI),
+  xMin: '-pi',
+  xMax: 'pi',
+  yMin: '-pi',
+  yMax: 'pi',
 }
-const CALCULATOR_KEYS = [
-  { label: 'sen(', token: 'sen(' },
-  { label: 'cos(', token: 'cos(' },
-  { label: 'tan(', token: 'tan(' },
-  { label: '√(', token: 'sqrt(' },
-  { label: 'asin(', token: 'asin(' },
-  { label: 'acos(', token: 'acos(' },
-  { label: 'atan(', token: 'atan(' },
-  { label: 'atan2(', token: 'atan2(' },
-  { label: 'sinh(', token: 'sinh(' },
-  { label: 'cosh(', token: 'cosh(' },
-  { label: 'tanh(', token: 'tanh(' },
-  { label: 'exp(', token: 'exp(' },
-  { label: 'tg(', token: 'tg(' },
-  { label: 'abs(', token: 'abs(' },
-  { label: 'log(', token: 'log(' },
-  { label: 'ln(', token: 'ln(' },
-  { label: 'min(', token: 'min(' },
-  { label: 'max(', token: 'max(' },
-  { label: 'pow(', token: 'pow(' },
-  { label: 'floor(', token: 'floor(' },
-  { label: 'π', token: 'pi' },
-  { label: 'e', token: 'e' },
-  { label: 'x', token: 'x' },
-  { label: 'y', token: 'y' },
-  { label: '(', token: '(' },
-  { label: ')', token: ')' },
-  { label: ',', token: ',' },
-  { label: '^', token: '^' },
-  { label: '÷', token: '/' },
-  { label: '7', token: '7' },
-  { label: '8', token: '8' },
-  { label: '9', token: '9' },
-  { label: '×', token: '*' },
-  { label: '4', token: '4' },
-  { label: '5', token: '5' },
-  { label: '6', token: '6' },
-  { label: '−', token: '-' },
-  { label: '1', token: '1' },
-  { label: '2', token: '2' },
-  { label: '3', token: '3' },
-  { label: '+', token: '+' },
-  { label: '0', token: '0' },
-  { label: '.', token: '.' },
-  { label: '⌫', token: 'backspace' },
-  { label: 'C', token: 'clear' },
+type DomainField = keyof typeof DEFAULT_DOMAIN_DRAFT
+type CalculatorTab = '123' | 'f(x)' | 'ABC'
+const CALCULATOR_TABS: CalculatorTab[] = ['123', 'f(x)', 'ABC']
+const CALCULATOR_KEYS: Record<CalculatorTab, { label: string; token: string }[]> = {
+  '123': [
+    { label: 'π', token: 'pi' },
+    { label: 'e', token: 'e' },
+    { label: '(', token: '(' },
+    { label: ')', token: ')' },
+    { label: '7', token: '7' },
+    { label: '8', token: '8' },
+    { label: '9', token: '9' },
+    { label: '÷', token: '/' },
+    { label: '4', token: '4' },
+    { label: '5', token: '5' },
+    { label: '6', token: '6' },
+    { label: '×', token: '*' },
+    { label: '1', token: '1' },
+    { label: '2', token: '2' },
+    { label: '3', token: '3' },
+    { label: '−', token: '-' },
+    { label: '0', token: '0' },
+    { label: '.', token: '.' },
+    { label: '^', token: '^' },
+    { label: '+', token: '+' },
+    { label: ',', token: ',' },
+    { label: '⌫', token: 'backspace' },
+    { label: 'C', token: 'clear' },
+  ],
+  'f(x)': [
+    { label: 'sen(', token: 'sen(' },
+    { label: 'cos(', token: 'cos(' },
+    { label: 'tan(', token: 'tan(' },
+    { label: '√(', token: 'sqrt(' },
+    { label: 'asin(', token: 'asin(' },
+    { label: 'acos(', token: 'acos(' },
+    { label: 'atan(', token: 'atan(' },
+    { label: 'tg(', token: 'tg(' },
+    { label: 'sinh(', token: 'sinh(' },
+    { label: 'cosh(', token: 'cosh(' },
+    { label: 'tanh(', token: 'tanh(' },
+    { label: 'exp(', token: 'exp(' },
+    { label: 'log(', token: 'log(' },
+    { label: 'ln(', token: 'ln(' },
+    { label: 'abs(', token: 'abs(' },
+    { label: 'atan2(', token: 'atan2(' },
+    { label: 'min(', token: 'min(' },
+    { label: 'max(', token: 'max(' },
+    { label: 'pow(', token: 'pow(' },
+    { label: 'floor(', token: 'floor(' },
+    { label: '⌫', token: 'backspace' },
+    { label: 'C', token: 'clear' },
+  ],
+  ABC: 'xyabcdefghijklmnopqrstuvwz'
+    .split('')
+    .map((letter) => ({ label: letter, token: letter })),
+}
+const DOMAIN_PRESETS = [
+  { label: '−π', value: '-pi' },
+  { label: '−π/2', value: '-pi/2' },
+  { label: '0', value: '0' },
+  { label: 'π/2', value: 'pi/2' },
+  { label: 'π', value: 'pi' },
 ]
 
 const axisLegend = [
@@ -102,7 +121,10 @@ export default function App() {
   } | null>(null)
   const [animationSpeed, setAnimationSpeed] = useState(1)
   const [formulaDraft, setFormulaDraft] = useState(DEFAULT_EXPRESSION)
+  const [formulaEditing, setFormulaEditing] = useState(false)
+  const [calculatorTab, setCalculatorTab] = useState<CalculatorTab>('123')
   const [domainDraft, setDomainDraft] = useState(DEFAULT_DOMAIN_DRAFT)
+  const [domainField, setDomainField] = useState<DomainField>('xMin')
   const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
   const [formulaError, setFormulaError] = useState<string | null>(null)
   const [workerReady, setWorkerReady] = useState(false)
@@ -115,10 +137,11 @@ export default function App() {
   const [showGradient, setShowGradient] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
   const [showAxes, setShowAxes] = useState(true)
+  const [colorMap, setColorMap] = useState<SurfaceColorMap>('atlas')
   const [highlightedElement, setHighlightedElement] = useState<
     'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
   >(null)
-  const [hoveredPoint, setHoveredPoint] = useState<PointInfo | null>(null)
+  const [selectedPoint, setSelectedPoint] = useState<PointInfo | null>(null)
   const formulaInputRef = useRef<HTMLInputElement>(null)
   const parameterValuesRef = useRef(parameterValues)
   const activeFunctionRef = useRef(activeFunction)
@@ -205,10 +228,11 @@ export default function App() {
               setAppliedExpression(
                 pending.restoreExample ? null : pending.expression.trim(),
               )
+              setFormulaEditing(false)
               setSurfaceDiagnostics(null)
               setShowCriticalPoints(pending.restoreExample)
               setShowGradient(false)
-              setHoveredPoint(null)
+              setSelectedPoint(null)
             }
           },
           (error: unknown) => {
@@ -298,8 +322,8 @@ export default function App() {
     return () => cancelAnimationFrame(animationFrame)
   }, [parameterAnimation, animationSpeed, appliedExpression, requestSurfaceCalculation])
 
-  const handlePointHover = useCallback((info: PointInfo | null) => {
-    setHoveredPoint(info)
+  const handlePointSelect = useCallback((info: PointInfo | null) => {
+    setSelectedPoint(info)
   }, [])
 
   const handleSurfaceDiagnostics = useCallback((diagnostics: SurfaceDiagnostics) => {
@@ -312,12 +336,12 @@ export default function App() {
     try {
       const domain = {
         x: {
-          min: Number.parseFloat(domainDraft.xMin),
-          max: Number.parseFloat(domainDraft.xMax),
+          min: parseDomainBound(domainDraft.xMin),
+          max: parseDomainBound(domainDraft.xMax),
         },
         y: {
-          min: Number.parseFloat(domainDraft.yMin),
-          max: Number.parseFloat(domainDraft.yMax),
+          min: parseDomainBound(domainDraft.yMin),
+          max: parseDomainBound(domainDraft.yMax),
         },
       }
       const parameters = getExpressionParameters(formulaDraft)
@@ -342,7 +366,7 @@ export default function App() {
     setSurfaceDiagnostics(null)
     setShowCriticalPoints(true)
     setShowGradient(false)
-    setHoveredPoint(null)
+    setSelectedPoint(null)
     requestSurfaceCalculation(
       DEFAULT_EXPRESSION,
       {},
@@ -354,6 +378,15 @@ export default function App() {
       180,
       true,
     )
+  }
+
+  const openFormulaEditor = () => {
+    setFormulaEditing(true)
+    requestAnimationFrame(() => formulaInputRef.current?.focus())
+  }
+
+  const setDomainPreset = (value: string) => {
+    setDomainDraft((current) => ({ ...current, [domainField]: value }))
   }
 
   const handleParameterChange = (name: string, value: number) => {
@@ -459,130 +492,202 @@ export default function App() {
           {/* Formula Card com tipografia de livro/papel */}
           <div className="formula-card">
             <span className="card-label">FUNÇÃO EM ESTUDO</span>
-            <form className="formula-editor" onSubmit={handleApplyFormula}>
-              <label htmlFor="formula-input">Digite uma fórmula para z = f(x, y)</label>
-              <div className="formula-input-row">
-                <span aria-hidden="true">z =</span>
-                <input
-                  id="formula-input"
-                  ref={formulaInputRef}
-                  name="formula"
-                  type="text"
-                  value={formulaDraft}
-                  onChange={(event) => {
-                    setFormulaDraft(event.target.value)
-                    setFormulaError(null)
-                  }}
-                  aria-invalid={formulaError !== null}
-                  aria-describedby={formulaError ? 'formula-error' : 'formula-help'}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="x^2 + y^2"
-                />
-                <button type="submit">Aplicar</button>
-              </div>
-              <p id="formula-help" className="formula-help">
-                Escreva a função ou use o teclado científico. Trigonometria em radianos.
-              </p>
-              <p className="formula-help" role="status" aria-live="polite">
-                {!workerReady
-                  ? 'Iniciando calculador em segundo plano…'
-                  : parameterAnimation
-                    ? 'Animação ativa; malha atualizada em segundo plano.'
-                    : calculating
-                      ? 'Calculando a superfície em segundo plano…'
-                      : 'Cálculos da malha executados em Web Worker.'}
-              </p>
-              <div
-                className="scientific-calculator"
-                aria-label="Teclado de calculadora científica"
-              >
-                {CALCULATOR_KEYS.map(({ label, token }) => (
-                  <button
-                    className={
-                      ['clear', 'backspace'].includes(token) ? 'key utility-key' : 'key'
-                    }
-                    key={`${label}-${token}`}
-                    type="button"
-                    aria-label={
-                      token === 'backspace'
-                        ? 'Apagar caractere'
-                        : token === 'clear'
-                          ? 'Limpar fórmula'
-                          : `Inserir ${label}`
-                    }
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => insertCalculatorToken(token)}
-                  >
-                    {label}
+            {formulaEditing ? (
+              <form className="formula-editor" onSubmit={handleApplyFormula}>
+                <div className="formula-editor-heading">
+                  <span>EDITOR DE FUNÇÃO</span>
+                  <button type="button" onClick={() => setFormulaEditing(false)}>
+                    Fechar
                   </button>
-                ))}
-              </div>
-              <fieldset className="domain-controls">
-                <legend>Domínio de exploração</legend>
-                <label>
-                  x mínimo
-                  <input
-                    type="number"
-                    step="any"
-                    value={domainDraft.xMin}
-                    onChange={(event) =>
-                      setDomainDraft({ ...domainDraft, xMin: event.target.value })
-                    }
-                  />
+                </div>
+                <label htmlFor="formula-input">
+                  Digite uma fórmula para z = f(x, y)
                 </label>
-                <label>
-                  x máximo
+                <div className="formula-input-row">
+                  <span aria-hidden="true">z =</span>
                   <input
-                    type="number"
-                    step="any"
-                    value={domainDraft.xMax}
-                    onChange={(event) =>
-                      setDomainDraft({ ...domainDraft, xMax: event.target.value })
-                    }
+                    id="formula-input"
+                    ref={formulaInputRef}
+                    name="formula"
+                    type="text"
+                    value={formulaDraft}
+                    onChange={(event) => {
+                      setFormulaDraft(event.target.value)
+                      setFormulaError(null)
+                    }}
+                    aria-invalid={formulaError !== null}
+                    aria-describedby={formulaError ? 'formula-error' : 'formula-help'}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="x^2 + y^2"
                   />
-                </label>
-                <label>
-                  y mínimo
-                  <input
-                    type="number"
-                    step="any"
-                    value={domainDraft.yMin}
-                    onChange={(event) =>
-                      setDomainDraft({ ...domainDraft, yMin: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  y máximo
-                  <input
-                    type="number"
-                    step="any"
-                    value={domainDraft.yMax}
-                    onChange={(event) =>
-                      setDomainDraft({ ...domainDraft, yMax: event.target.value })
-                    }
-                  />
-                </label>
-                <small>
-                  Limites finitos, com inferior menor que superior (|limite| ≤ 10.000).
-                </small>
-              </fieldset>
-              {formulaError && (
-                <p id="formula-error" className="formula-error" role="alert">
-                  {formulaError} A superfície anterior foi mantida.
+                  <button type="submit">Aplicar</button>
+                </div>
+                <p id="formula-help" className="formula-help">
+                  Escreva a função ou use o teclado científico. Trigonometria em
+                  radianos.
                 </p>
-              )}
-              {isCustomFunction && (
-                <button
-                  className="restore-example-button"
-                  type="button"
-                  onClick={handleRestoreExample}
-                >
-                  Restaurar exemplo
-                </button>
-              )}
-            </form>
+                <p className="formula-help" role="status" aria-live="polite">
+                  {!workerReady
+                    ? 'Iniciando calculador em segundo plano…'
+                    : parameterAnimation
+                      ? 'Animação ativa; malha atualizada em segundo plano.'
+                      : calculating
+                        ? 'Calculando a superfície em segundo plano…'
+                        : 'Cálculos da malha executados em Web Worker.'}
+                </p>
+                <div className="calculator-keyboard" aria-label="Teclado matemático">
+                  <div
+                    className="calculator-tabs"
+                    role="tablist"
+                    aria-label="Categorias do teclado"
+                  >
+                    {CALCULATOR_TABS.map((tab) => (
+                      <button
+                        key={tab}
+                        id={`calculator-tab-${tab}`}
+                        className="calculator-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected={calculatorTab === tab}
+                        aria-controls="calculator-keys"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => setCalculatorTab(tab)}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    className={`scientific-calculator calculator-keys-${calculatorTab.replace(/[()]/g, '')}`}
+                    id="calculator-keys"
+                    role="tabpanel"
+                    aria-labelledby={`calculator-tab-${calculatorTab}`}
+                    aria-label={`Teclado ${calculatorTab}`}
+                  >
+                    {CALCULATOR_KEYS[calculatorTab].map(({ label, token }) => (
+                      <button
+                        className={
+                          ['clear', 'backspace'].includes(token)
+                            ? 'key utility-key'
+                            : 'key'
+                        }
+                        key={`${label}-${token}`}
+                        type="button"
+                        aria-label={
+                          token === 'backspace'
+                            ? 'Apagar caractere'
+                            : token === 'clear'
+                              ? 'Limpar fórmula'
+                              : `Inserir ${label}`
+                        }
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => insertCalculatorToken(token)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <fieldset className="domain-controls">
+                  <legend>Domínio de exploração</legend>
+                  <label>
+                    x mínimo
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={domainDraft.xMin}
+                      onFocus={() => setDomainField('xMin')}
+                      onChange={(event) =>
+                        setDomainDraft({ ...domainDraft, xMin: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    x máximo
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={domainDraft.xMax}
+                      onFocus={() => setDomainField('xMax')}
+                      onChange={(event) =>
+                        setDomainDraft({ ...domainDraft, xMax: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    y mínimo
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={domainDraft.yMin}
+                      onFocus={() => setDomainField('yMin')}
+                      onChange={(event) =>
+                        setDomainDraft({ ...domainDraft, yMin: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    y máximo
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={domainDraft.yMax}
+                      onFocus={() => setDomainField('yMax')}
+                      onChange={(event) =>
+                        setDomainDraft({ ...domainDraft, yMax: event.target.value })
+                      }
+                    />
+                  </label>
+                  <small>
+                    <span>
+                      Digite constantes como <code>pi/2</code> ou escolha um atalho para
+                      o limite selecionado:
+                    </span>
+                    <span className="domain-presets">
+                      {DOMAIN_PRESETS.map(({ label, value }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          aria-pressed={domainDraft[domainField] === value}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => setDomainPreset(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </span>
+                    <span>
+                      Limites finitos, com inferior menor que superior (|limite| ≤
+                      10.000).
+                    </span>
+                  </small>
+                </fieldset>
+                {formulaError && (
+                  <p id="formula-error" className="formula-error" role="alert">
+                    {formulaError} A superfície anterior foi mantida.
+                  </p>
+                )}
+                {isCustomFunction && (
+                  <button
+                    className="restore-example-button"
+                    type="button"
+                    onClick={handleRestoreExample}
+                  >
+                    Restaurar exemplo
+                  </button>
+                )}
+              </form>
+            ) : (
+              <button
+                className="formula-edit-trigger"
+                type="button"
+                onClick={openFormulaEditor}
+              >
+                <span>Editar função e domínio</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+            )}
 
             <MathBlock className="formula-main-paper formula-applied">
               <MVar>z</MVar> ={' '}
@@ -693,6 +798,38 @@ export default function App() {
                 {surfaceWarning}
               </p>
             )}
+            {isCustomFunction && !activeFunction.gradient && (
+              <p className="surface-warning" role="status">
+                Para esta expressão, as normais são estimadas a partir da malha porque
+                alguma derivada não tem regra analítica disponível.
+              </p>
+            )}
+          </div>
+
+          <div className="surface-colormap">
+            <label htmlFor="surface-colormap">Mapa de cores por altura</label>
+            <select
+              id="surface-colormap"
+              value={colorMap}
+              onChange={(event) =>
+                setColorMap(event.currentTarget.value as SurfaceColorMap)
+              }
+            >
+              {Object.entries(SURFACE_COLOR_MAPS).map(([key, palette]) => (
+                <option key={key} value={key}>
+                  {palette.label}
+                </option>
+              ))}
+            </select>
+            <div className="surface-colormap-scale">
+              <small>Baixo</small>
+              <span
+                className="surface-colormap-preview"
+                aria-hidden="true"
+                style={{ backgroundImage: SURFACE_COLOR_MAPS[colorMap].css }}
+              />
+              <small>Alto</small>
+            </div>
           </div>
 
           {/* Layer toggles */}
@@ -802,8 +939,8 @@ export default function App() {
           </div>
 
           <p className="interaction-hint">
-            Arraste com o mouse para orbitar · Role para zoom · Passe o cursor para
-            inspecionar
+            Arraste para orbitar · Role para zoom · Clique na superfície para ler
+            <MathText> (x, y, f(x,y))</MathText>
           </p>
         </aside>
 
@@ -827,8 +964,9 @@ export default function App() {
             showGradient={showGradient}
             showGrid={showGrid}
             showAxes={showAxes}
+            colorMap={colorMap}
             highlightedElement={highlightedElement}
-            onPointHover={handlePointHover}
+            onPointSelect={handlePointSelect}
             onSurfaceDiagnostics={handleSurfaceDiagnostics}
           />
 
@@ -852,42 +990,50 @@ export default function App() {
           </div>
 
           {/* Point inspector stays anchored inside the scene. */}
-          {hoveredPoint && (
-            <div className="point-tooltip" role="tooltip" aria-live="polite">
-              {hoveredPoint.criticalPoint && (
+          {selectedPoint && (
+            <div className="point-tooltip" role="status" aria-label="Ponto selecionado">
+              <button
+                className="point-inspector-close"
+                type="button"
+                aria-label="Fechar inspeção do ponto"
+                onClick={() => setSelectedPoint(null)}
+              >
+                ×
+              </button>
+              {selectedPoint.criticalPoint && (
                 <span
-                  className={`tooltip-badge ${criticalKindBadge[hoveredPoint.criticalPoint.kind]?.badgeClass ?? ''}`}
+                  className={`tooltip-badge ${criticalKindBadge[selectedPoint.criticalPoint.kind]?.badgeClass ?? ''}`}
                 >
-                  {criticalKindBadge[hoveredPoint.criticalPoint.kind]?.label}
+                  {criticalKindBadge[selectedPoint.criticalPoint.kind]?.label}
                 </span>
               )}
               <div className="tooltip-coords">
                 <span className="tooltip-coord-row">
-                  <MVar>x</MVar> = <strong>{formatNum(hoveredPoint.x)}</strong> rad
+                  <MVar>x</MVar> = <strong>{formatNum(selectedPoint.x)}</strong> rad
                 </span>
                 <span className="tooltip-coord-row">
-                  <MVar>y</MVar> = <strong>{formatNum(hoveredPoint.y)}</strong> rad
+                  <MVar>y</MVar> = <strong>{formatNum(selectedPoint.y)}</strong> rad
                 </span>
                 <span className="tooltip-coord-row">
-                  <MVar>z</MVar> = <strong>{formatNum(hoveredPoint.z)}</strong>
+                  <MVar>z</MVar> = <strong>{formatNum(selectedPoint.z)}</strong>
                 </span>
               </div>
-              {hoveredPoint.gradient && (
+              {selectedPoint.gradient && (
                 <div className="tooltip-gradient">
                   <div className="tooltip-grad-row">
                     <span>
                       ∇<MVar>f</MVar>
                     </span>
                     <span>
-                      ({formatNum(hoveredPoint.gradient[0])},{' '}
-                      {formatNum(hoveredPoint.gradient[1])})
+                      ({formatNum(selectedPoint.gradient[0])},{' '}
+                      {formatNum(selectedPoint.gradient[1])})
                     </span>
                   </div>
                   <div className="tooltip-mag-row">
                     <span>
                       ‖∇<MVar>f</MVar>‖
                     </span>
-                    <span>{formatNum(hoveredPoint.gradientMagnitude ?? 0)}</span>
+                    <span>{formatNum(selectedPoint.gradientMagnitude ?? 0)}</span>
                   </div>
                 </div>
               )}
@@ -937,9 +1083,9 @@ export default function App() {
                 <strong>3. Construa:</strong> a cena avalia a função em cada vértice da
                 malha e liga pontos vizinhos válidos; pontos sem valor real ficam como
                 buracos.
-                <br />
-                Derivadas simbólicas, gradiente e integrais serão acrescentados nos
-                módulos de cálculo correspondentes.
+                <br />O gradiente analítico e as normais são calculados quando a
+                expressão permite; integrais e deduções passo a passo virão com os
+                módulos correspondentes.
               </p>
             </div>
           ) : (

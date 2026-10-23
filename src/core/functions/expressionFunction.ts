@@ -113,9 +113,13 @@ export function createExpressionFunction(
   }
 
   const evaluate = (x: number, y: number) => {
+    return expression.evaluate(getVariables(x, y))
+  }
+
+  const getVariables = (x: number, y: number): Record<string, number> => {
     const variables: Record<string, number> = { x, y }
     for (const name of freeParameters) variables[name] = parameterValues[name] ?? 1
-    return expression.evaluate(variables)
+    return variables
   }
 
   return {
@@ -130,6 +134,9 @@ export function createExpressionFunction(
     domainLabel: describeDomain(domain),
     range: sampledRange ?? sampleRange(evaluate, domain),
     evaluate,
+    ...(expression.gradient
+      ? { gradient: (x: number, y: number) => expression.gradient!(getVariables(x, y)) }
+      : {}),
     criticalPoints: [],
     analysis: [],
   }

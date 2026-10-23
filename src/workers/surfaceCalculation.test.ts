@@ -21,6 +21,8 @@ describe('surface calculation worker service', () => {
     expect(result?.range.max).toBeGreaterThan(1)
     expect(result?.grid.positions).toHaveLength(5 * 5 * 3)
     expect(result?.grid.validVertices).toHaveLength(25)
+    expect(result?.grid.gradientX[22]).toBeCloseTo(0.5)
+    expect(result?.grid.gradientY[22]).toBeCloseTo(1)
     expect(result?.grid.indices.length).toBeGreaterThan(0)
   })
 

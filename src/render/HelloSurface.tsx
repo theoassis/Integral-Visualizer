@@ -33,6 +33,7 @@ import {
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { CriticalPointData, VisualizableFunction } from '../core/functions/types'
 import { estimateGridGradient, SURFACE_SEGMENTS, type SurfaceGrid } from './surfaceGrid'
+import { evaluateHeightColor, type SurfaceColorMap } from './colorMaps'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -62,8 +63,9 @@ interface HelloSurfaceProps {
   showGradient: boolean
   showGrid: boolean
   showAxes: boolean
+  colorMap: SurfaceColorMap
   highlightedElement?: 'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
-  onPointHover?: (info: PointInfo | null) => void
+  onPointSelect?: (info: PointInfo | null) => void
   onSurfaceDiagnostics?: (diagnostics: SurfaceDiagnostics) => void
 }
 
@@ -80,13 +82,6 @@ const GRID_COLOR = '#283139'
 const AXIS_X_COLOR = '#d79c9d'
 const AXIS_Y_COLOR = '#8bb6a2'
 const AXIS_Z_COLOR = '#a9bfd0'
-const SURFACE_PALETTE = [
-  new Color('#34475f'),
-  new Color('#63858d'),
-  new Color('#9eb4a8'),
-  new Color('#dbc18d'),
-]
-
 /* ------------------------------------------------------------------ */
 /*  Shader for smooth, cinematic surface formation                     */
 /* ------------------------------------------------------------------ */
@@ -155,8 +150,9 @@ export default function HelloSurface({
   showGradient,
   showGrid,
   showAxes,
+  colorMap,
   highlightedElement,
-  onPointHover,
+  onPointSelect,
   onSurfaceDiagnostics,
 }: HelloSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -174,12 +170,14 @@ export default function HelloSurface({
   const axesRef = useRef<Group | null>(null)
   const surfaceMeshRef = useRef<Mesh | null>(null)
   const surfaceMaterialRef = useRef<ShaderMaterial | null>(null)
-  const onPointHoverRef = useRef(onPointHover)
+  const onPointSelectRef = useRef(onPointSelect)
   const onSurfaceDiagnosticsRef = useRef(onSurfaceDiagnostics)
   const funcRef = useRef(func)
+  const colorMapRef = useRef(colorMap)
   const calculatedGridRef = useRef(calculatedGrid)
   const lastAppliedFunctionRef = useRef<VisualizableFunction | null>(null)
   const lastAppliedGridRef = useRef<SurfaceGrid | null>(null)
+  const lastAppliedColorMapRef = useRef<SurfaceColorMap | null>(null)
   const sceneRangeRef = useRef<VisualizableFunction['range'] | null>(null)
   const hasCalculatedGrid = calculatedGrid !== null
 
@@ -188,12 +186,16 @@ export default function HelloSurface({
   }, [func])
 
   useEffect(() => {
+    colorMapRef.current = colorMap
+  }, [colorMap])
+
+  useEffect(() => {
     calculatedGridRef.current = calculatedGrid
   }, [calculatedGrid])
 
   useEffect(() => {
-    onPointHoverRef.current = onPointHover
-  }, [onPointHover])
+    onPointSelectRef.current = onPointSelect
+  }, [onPointSelect])
 
   useEffect(() => {
     onSurfaceDiagnosticsRef.current = onSurfaceDiagnostics
@@ -251,7 +253,7 @@ export default function HelloSurface({
       surfaceMesh: Mesh,
       criticalGroup: Group,
     ) => {
-      if (!onPointHoverRef.current) return
+      if (!onPointSelectRef.current) return
 
       const rect = renderer.domElement.getBoundingClientRect()
       const mouse = new Vector2(
@@ -288,7 +290,7 @@ export default function HelloSurface({
           const cpData = targetObj.userData['criticalPoint'] as
             CriticalPointData | undefined
           if (cpData) {
-            onPointHoverRef.current({
+            onPointSelectRef.current({
               x: cpData.x,
               y: cpData.y,
               z: cpData.z,
@@ -307,16 +309,21 @@ export default function HelloSurface({
       const hitSurface = surfaceHits[0]
       if (hitSurface) {
         const point = hitSurface.point
-        onPointHoverRef.current({
+        const z = funcRef.current.evaluate(point.x, point.y)
+        if (!Number.isFinite(z)) {
+          onPointSelectRef.current(null)
+          return
+        }
+        onPointSelectRef.current({
           x: point.x,
           y: point.y,
-          z: point.z,
+          z,
           ...gradientDetails(point.x, point.y),
           screenX: event.clientX,
           screenY: event.clientY,
         })
       } else {
-        onPointHoverRef.current(null)
+        onPointSelectRef.current(null)
       }
     },
     [],
@@ -405,12 +412,13 @@ export default function HelloSurface({
       mesh: surfaceMesh,
       material: surfaceMaterial,
       diagnostics,
-    } = createSurfaceMesh(initialFunction, initialGrid, true)
+    } = createSurfaceMesh(initialFunction, initialGrid, true, colorMapRef.current)
     onSurfaceDiagnosticsRef.current?.(diagnostics)
     surfaceMeshRef.current = surfaceMesh
     surfaceMaterialRef.current = surfaceMaterial
     lastAppliedFunctionRef.current = initialFunction
     lastAppliedGridRef.current = initialGrid
+    lastAppliedColorMapRef.current = colorMapRef.current
     sceneRangeRef.current = initialFunction.range
     scene.add(surfaceMesh)
 
@@ -443,7 +451,7 @@ export default function HelloSurface({
     })
     resizeObserver.observe(container)
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onCanvasClick = (e: MouseEvent) => {
       handleCanvasEvent(
         e,
         camera,
@@ -452,11 +460,7 @@ export default function HelloSurface({
         criticalPointsRef.current ?? criticalPoints,
       )
     }
-    const onMouseLeave = () => {
-      if (onPointHoverRef.current) onPointHoverRef.current(null)
-    }
-    renderer.domElement.addEventListener('mousemove', onMouseMove)
-    renderer.domElement.addEventListener('mouseleave', onMouseLeave)
+    renderer.domElement.addEventListener('click', onCanvasClick)
 
     // Animation loop: smooth initial surface emergence
     const animationDuration = REDUCED_MOTION ? 0.001 : 2.0
@@ -486,8 +490,7 @@ export default function HelloSurface({
 
     return () => {
       renderer.setAnimationLoop(null)
-      renderer.domElement.removeEventListener('mousemove', onMouseMove)
-      renderer.domElement.removeEventListener('mouseleave', onMouseLeave)
+      renderer.domElement.removeEventListener('click', onCanvasClick)
       resizeObserver.disconnect()
       controls.dispose()
       controlsRef.current = null
@@ -501,6 +504,7 @@ export default function HelloSurface({
       cameraRef.current = null
       lastAppliedFunctionRef.current = null
       lastAppliedGridRef.current = null
+      lastAppliedColorMapRef.current = null
       sceneRangeRef.current = null
       scene.traverse((object) => {
         if (
@@ -527,9 +531,13 @@ export default function HelloSurface({
   useEffect(() => {
     const scene = sceneRef.current
     if (!scene || !calculatedGrid) return
-    if (lastAppliedGridRef.current === calculatedGrid) return
+    if (
+      lastAppliedGridRef.current === calculatedGrid &&
+      lastAppliedColorMapRef.current === colorMap
+    )
+      return
 
-    const nextSurface = createSurfaceMesh(func, calculatedGrid, false)
+    const nextSurface = createSurfaceMesh(func, calculatedGrid, false, colorMap)
     const previousSurface = surfaceMeshRef.current
     if (previousSurface) {
       scene.remove(previousSurface)
@@ -640,7 +648,8 @@ export default function HelloSurface({
 
     lastAppliedFunctionRef.current = func
     lastAppliedGridRef.current = calculatedGrid
-  }, [func, calculatedGrid, highlightedElement])
+    lastAppliedColorMapRef.current = colorMap
+  }, [func, calculatedGrid, highlightedElement, colorMap])
 
   return <div className="scene-canvas" ref={containerRef} />
 }
@@ -673,6 +682,7 @@ function createSurfaceMesh(
   func: VisualizableFunction,
   grid: SurfaceGrid,
   animateIn = false,
+  colorMap: SurfaceColorMap = 'atlas',
 ): {
   mesh: Mesh<BufferGeometry, ShaderMaterial>
   material: ShaderMaterial
@@ -684,12 +694,9 @@ function createSurfaceMesh(
   const rangeSpan = Math.max(func.range.max - func.range.min, 0.001)
 
   for (let index = 0; index < grid.validVertices.length; index += 1) {
-    const x = grid.positions[index * 3]!
-    const y = grid.positions[index * 3 + 1]!
     const valid = grid.validVertices[index] === 1
-    let [fx, fy] =
-      func.gradient?.(x, y) ??
-      estimateGridGradient(grid, Math.floor(index / sideLength), index % sideLength)
+    let fx = grid.gradientX[index]!
+    let fy = grid.gradientY[index]!
     if (!Number.isFinite(fx) || !Number.isFinite(fy) || !valid) {
       const estimated = estimateGridGradient(
         grid,
@@ -714,10 +721,10 @@ function createSurfaceMesh(
 
     const z = grid.heights[index]!
     const t = valid ? (z - func.range.min) / rangeSpan : 0.5
-    const color = evaluateHeightColor(t)
-    colors[index * 3] = color.r
-    colors[index * 3 + 1] = color.g
-    colors[index * 3 + 2] = color.b
+    const [red, green, blue] = evaluateHeightColor(t, colorMap)
+    colors[index * 3] = red
+    colors[index * 3 + 1] = green
+    colors[index * 3 + 2] = blue
   }
 
   const geometry = new BufferGeometry()
@@ -748,17 +755,6 @@ function createSurfaceMesh(
       totalSampleCount: grid.validVertices.length,
     },
   }
-}
-
-function evaluateHeightColor(t: number): Color {
-  const normalized = Math.min(Math.max(t, 0), 1) * (SURFACE_PALETTE.length - 1)
-  const lowerIndex = Math.floor(normalized)
-  const upperIndex = Math.min(lowerIndex + 1, SURFACE_PALETTE.length - 1)
-  return new Color().lerpColors(
-    SURFACE_PALETTE[lowerIndex]!,
-    SURFACE_PALETTE[upperIndex]!,
-    normalized - lowerIndex,
-  )
 }
 
 /* ------------------------------------------------------------------ */

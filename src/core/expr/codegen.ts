@@ -1,4 +1,4 @@
-import { parse } from 'mathjs'
+import { derivative, parse } from 'mathjs'
 import type {
   ConstantNode,
   FunctionNode,
@@ -44,6 +44,7 @@ export interface CompiledExpression {
   readonly source: string
   readonly variables: readonly string[]
   evaluate(scope?: VariableScope): number
+  gradient?: (scope?: VariableScope) => [number, number]
 }
 
 type Evaluator = (scope: VariableScope) => number
@@ -165,6 +166,17 @@ const FUNCTION_DEFINITIONS = new Map<string, FunctionDefinition>([
   ],
 ])
 
+const DERIVATIVE_FUNCTION_DEFINITIONS = new Map<string, FunctionDefinition>([
+  [
+    'sec',
+    { minArguments: 1, maxArguments: 1, evaluate: ([x]) => 1 / Math.cos(x ?? NaN) },
+  ],
+  [
+    'sech',
+    { minArguments: 1, maxArguments: 1, evaluate: ([x]) => 1 / Math.cosh(x ?? NaN) },
+  ],
+])
+
 const FUNCTION_ALIASES = new Map<string, string>([
   ['sen', 'sin'],
   ['tg', 'tan'],
@@ -247,7 +259,12 @@ function readVariable(scope: VariableScope, name: string): number {
   return value
 }
 
-function compileNode(node: MathNode, context: CompileContext, depth = 0): Evaluator {
+function compileNode(
+  node: MathNode,
+  context: CompileContext,
+  depth = 0,
+  generatedDerivative = false,
+): Evaluator {
   context.nodeCount += 1
   if (context.nodeCount > MAX_NODE_COUNT || depth > MAX_TREE_DEPTH) {
     throw new ExpressionError(
@@ -293,7 +310,12 @@ function compileNode(node: MathNode, context: CompileContext, depth = 0): Evalua
     }
 
     case 'ParenthesisNode':
-      return compileNode((node as ParenthesisNode).content, context, depth + 1)
+      return compileNode(
+        (node as ParenthesisNode).content,
+        context,
+        depth + 1,
+        generatedDerivative,
+      )
 
     case 'FunctionNode': {
       const functionNode = node as FunctionNode
@@ -301,7 +323,9 @@ function compileNode(node: MathNode, context: CompileContext, depth = 0): Evalua
 
       const sourceName = (functionNode.fn as SymbolNode).name
       const name = FUNCTION_ALIASES.get(sourceName) ?? sourceName
-      const definition = FUNCTION_DEFINITIONS.get(name)
+      const definition =
+        FUNCTION_DEFINITIONS.get(name) ??
+        (generatedDerivative ? DERIVATIVE_FUNCTION_DEFINITIONS.get(name) : undefined)
       if (!definition) {
         throw new ExpressionError(
           'unknown-function',
@@ -328,7 +352,7 @@ function compileNode(node: MathNode, context: CompileContext, depth = 0): Evalua
       }
 
       const evaluateArguments = functionNode.args.map((argument) =>
-        compileNode(argument, context, depth + 1),
+        compileNode(argument, context, depth + 1, generatedDerivative),
       )
       return (scope) =>
         definition.evaluate(
@@ -339,7 +363,7 @@ function compileNode(node: MathNode, context: CompileContext, depth = 0): Evalua
     case 'OperatorNode': {
       const operator = node as OperatorNode<OperatorNodeOp, OperatorNodeFn>
       const argumentEvaluators = operator.args.map((argument) =>
-        compileNode(argument, context, depth + 1),
+        compileNode(argument, context, depth + 1, generatedDerivative),
       )
 
       if (
@@ -454,6 +478,32 @@ function normalizeFunctionShorthand(source: string): string {
   return normalized
 }
 
+function expandImplicitProducts(root: MathNode): MathNode {
+  return root.transform((node, path, parent) => {
+    if (node.type !== 'SymbolNode') return node
+    const name = (node as SymbolNode).name
+
+    if (parent?.type === 'FunctionNode' && path === 'fn') {
+      const normalizedName = FUNCTION_ALIASES.get(name)
+      return normalizedName ? parse(normalizedName) : node
+    }
+
+    if (name.length < 2 || name === 'pi') return node
+
+    const factors: string[] = []
+    for (let index = 0; index < name.length;) {
+      if (name.startsWith('pi', index)) {
+        factors.push('pi')
+        index += 2
+      } else {
+        factors.push(name[index]!)
+        index += 1
+      }
+    }
+    return parse(factors.join('*'))
+  }) as MathNode
+}
+
 export function compileExpression(source: string): CompiledExpression {
   if (source.length > MAX_SOURCE_LENGTH) {
     throw new ExpressionError(
@@ -477,10 +527,28 @@ export function compileExpression(source: string): CompiledExpression {
   const context: CompileContext = { variables: new Set(), nodeCount: 0 }
   const evaluateRoot = compileNode(root, context)
   const variables = Object.freeze([...context.variables].sort())
+  let gradient: CompiledExpression['gradient']
+
+  try {
+    const derivativeRoot = expandImplicitProducts(root)
+    const evaluateDerivative = (variable: 'x' | 'y') =>
+      compileNode(
+        derivative(derivativeRoot, variable),
+        { variables: new Set(), nodeCount: 0 },
+        0,
+        true,
+      )
+    const evaluateX = evaluateDerivative('x')
+    const evaluateY = evaluateDerivative('y')
+    gradient = (scope: VariableScope = {}) => [evaluateX(scope), evaluateY(scope)]
+  } catch {
+    // Functions without a supported symbolic derivative use render-time grid estimates.
+  }
 
   return Object.freeze({
     source: expression,
     variables,
     evaluate: (scope: VariableScope = {}) => evaluateRoot(scope),
+    gradient,
   })
 }

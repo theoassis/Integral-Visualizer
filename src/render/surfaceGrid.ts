@@ -8,6 +8,8 @@ export interface SurfaceGrid {
   readonly positions: Float32Array
   readonly heights: Float64Array
   readonly validVertices: Uint8Array
+  readonly gradientX: Float32Array
+  readonly gradientY: Float32Array
   readonly indices: number[]
   readonly invalidSampleCount: number
 }
@@ -16,7 +18,7 @@ export const SURFACE_SEGMENTS = 96
 
 /** Samples a rectangular domain and omits every triangle that touches an invalid height. */
 export function createSurfaceGrid(
-  func: Pick<VisualizableFunction, 'domain' | 'evaluate'>,
+  func: Pick<VisualizableFunction, 'domain' | 'evaluate' | 'gradient'>,
   segments: number,
 ): SurfaceGrid {
   if (!Number.isInteger(segments) || segments < 1) {
@@ -31,6 +33,8 @@ export function createSurfaceGrid(
   const positions = new Float32Array(vertexCount * 3)
   const heights = new Float64Array(vertexCount)
   const validVertices = new Uint8Array(vertexCount)
+  const gradientX = new Float32Array(vertexCount).fill(Number.NaN)
+  const gradientY = new Float32Array(vertexCount).fill(Number.NaN)
   let invalidSampleCount = 0
 
   for (let i = 0; i <= segments; i += 1) {
@@ -46,6 +50,13 @@ export function createSurfaceGrid(
       positions[index * 3 + 2] = valid ? height : 0
       heights[index] = valid ? height : Number.NaN
       validVertices[index] = valid ? 1 : 0
+      if (valid && func.gradient) {
+        const [dx, dy] = func.gradient(x, y)
+        if (Number.isFinite(dx) && Number.isFinite(dy)) {
+          gradientX[index] = Math.fround(dx)
+          gradientY[index] = Math.fround(dy)
+        }
+      }
       if (!valid) invalidSampleCount += 1
     }
   }
@@ -75,6 +86,8 @@ export function createSurfaceGrid(
     positions,
     heights,
     validVertices,
+    gradientX,
+    gradientY,
     indices,
     invalidSampleCount,
   }
@@ -82,7 +95,7 @@ export function createSurfaceGrid(
 
 /** Samples a surface cooperatively so a Worker can receive newer jobs between rows. */
 export async function createSurfaceGridAsync(
-  func: Pick<VisualizableFunction, 'domain' | 'evaluate'>,
+  func: Pick<VisualizableFunction, 'domain' | 'evaluate' | 'gradient'>,
   segments: number,
   shouldCancel: () => boolean,
 ): Promise<SurfaceGrid | null> {
@@ -98,6 +111,8 @@ export async function createSurfaceGridAsync(
   const positions = new Float32Array(vertexCount * 3)
   const heights = new Float64Array(vertexCount)
   const validVertices = new Uint8Array(vertexCount)
+  const gradientX = new Float32Array(vertexCount).fill(Number.NaN)
+  const gradientY = new Float32Array(vertexCount).fill(Number.NaN)
   let invalidSampleCount = 0
 
   for (let i = 0; i <= segments; i += 1) {
@@ -113,6 +128,13 @@ export async function createSurfaceGridAsync(
       positions[index * 3 + 2] = valid ? height : 0
       heights[index] = valid ? height : Number.NaN
       validVertices[index] = valid ? 1 : 0
+      if (valid && func.gradient) {
+        const [dx, dy] = func.gradient(x, y)
+        if (Number.isFinite(dx) && Number.isFinite(dy)) {
+          gradientX[index] = Math.fround(dx)
+          gradientY[index] = Math.fround(dy)
+        }
+      }
       if (!valid) invalidSampleCount += 1
     }
     if (i % 8 === 7 || i === segments) {
@@ -145,6 +167,8 @@ export async function createSurfaceGridAsync(
     positions,
     heights,
     validVertices,
+    gradientX,
+    gradientY,
     indices,
     invalidSampleCount,
   }

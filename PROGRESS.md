@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 1 — Fundação e superfícies
-- **Tarefa atual:** F1-T6 — mapas de cores, normais analíticas e picking
+- **Tarefa atual:** portão de revisão matemática da Fase 1
 - **Última sessão:** 2026-10-23
-- **Estado dos testes:** `pnpm test` — 70 testes passando (6 arquivos, 0 falhas)
-- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.506,91 kB excede 500 kB; Worker emitido separadamente (675,71 kB)
-- **Último commit:** `feat: animate free parameters`
+- **Estado dos testes:** `pnpm test` — 81 testes passando (8 arquivos, 0 falhas)
+- **Estado do build/tipos:** tipos, lint, formatação e build passaram; chunk inicial de 1.511,40 kB (412,78 kB gzip) e Worker separado de 676,71 kB
+- **Último commit:** `feat: improve surface editing and inspection`
 
 ## Painel de fases
 
@@ -41,7 +41,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha. |
 | F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                     |
 | F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.          |
-| F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                                             |
+| F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                       |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -114,7 +114,7 @@ Marque conforme forem implementados **e passando**.
 
 ## Problemas conhecidos / dívida técnica
 
-- O build mais recente gera um chunk inicial de 1.506,91 kB minificado (Three.js e math.js); o Vite avisa acima de 500 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
+- O build mais recente gera um chunk inicial de 1.511,40 kB minificado (412,78 kB gzip), além do Worker de 676,71 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
 
 ## Ideias para o backlog (não implementar agora)
 
@@ -300,3 +300,26 @@ Marque conforme forem implementados **e passando**.
   - Prévia local: `sin(a*x)*cos(y)` animou `a`, a velocidade mudou para 1,25× e a pausa preservou o valor; console sem erros.
 - **Não verificado:** desempenho em dispositivo móvel/GPU restrita; chunk principal continua acima do limite de aviso do Vite.
 - **Próximo passo:** F1-T6 — mapas de cores, normais analíticas e picking; manter a revisão matemática da Fase 1 pendente até a conclusão dessa tarefa.
+
+### Sessão 11
+
+- **Data:** 2026-10-23
+- **Tarefa:** reorganizar editor de função/limites e concluir F1-T6.
+- **Feito:**
+  1. O editor agora fica recolhido e abre por ação explícita. O teclado contextual segue a navegação familiar do GeoGebra com categorias `123`, `f(x)` e `ABC`; constantes e funções autorizadas ficam agrupadas, com inserção no cursor.
+  2. Limites aceitam expressões numéricas seguras com constantes (`-pi`, `pi/2`, `2*pi`, `e+1`), sem variáveis. Atalhos `−π`, `−π/2`, `0`, `π/2`, `π` inserem no campo selecionado.
+  3. `compileExpression` agora deriva simbolicamente expressões suportadas. O Worker calcula os gradientes nos vértices e transfere os buffers da malha; o renderizador usa esses gradientes para as normais. Nós derivados passam por compilação restrita e `sec`/`sech` só são aceitos nas árvores internas geradas. Quando a biblioteca não fornece regra (por exemplo, `floor`), o renderizador mantém a estimativa de malha e a interface avisa.
+  4. A cena oferece três mapas de altura (Atlas, Viridis e Térmico). Mudar o mapa substitui a malha colorida sem recriar renderer/câmera.
+  5. A inspeção mudou de hover para clique. O ponto selecionado permanece aberto até fechar ou clicar fora da superfície; z é reavaliado pela fórmula em (x,y), e o painel mostra gradiente analítico quando definido.
+- **Verificações matemáticas:**
+  - `∇(x²+y²)(1,2)=(2,4)` e `∇(xy)(3,4)=(4,3)` conferidos em testes.
+  - Para `sin(x)cos(y)`, o gradiente em `(π/4,π/3)` é `(√2/4,−√6/4)`; derivadas de expressão composta também foram comparadas a diferenças finitas centrais.
+  - Para `sen(x)tan(y)` em `(π/6,π/4)`, gradiente `(√3/2,1)`.
+- **Verificações executadas:**
+  - TypeScript: passou.
+  - Vitest: 81 testes passaram em 8 arquivos (0 falhas), incluindo constantes de domínio, paletas, gradientes transferidos pelo Worker e fallback quando a derivada não tem regra suportada.
+  - ESLint e Prettier: passaram.
+  - Build Vite: passou; bundle inicial 1.511,40 kB (412,78 kB gzip), Worker 676,71 kB; Vite emitiu aviso de chunk acima de 500 kB.
+  - Prévia local: teclado oculto até abrir o editor; `x²+y²` com limites contendo `π/2`; Viridis selecionável; clique na superfície mostrou, por exemplo, `(x,y,z)≈(1,883,−2,886,11,874)` e `∇f≈(3,766,−5,772)` usando os dados do Worker.
+- **Limitações:** derivação simbólica depende das regras disponíveis no math.js; funções sem regra de diferenciação continuam com normais estimadas pela malha. Desempenho em GPU móvel não medido.
+- **Próximo passo:** portão de revisão matemática da Fase 1. Não iniciar Fase 2 até aprovação explícita.

@@ -14,6 +14,8 @@ class TransferableSurfaceCalculationService extends SurfaceCalculationService {
       result.grid.positions.buffer as ArrayBuffer,
       result.grid.heights.buffer as ArrayBuffer,
       result.grid.validVertices.buffer as ArrayBuffer,
+      result.grid.gradientX.buffer as ArrayBuffer,
+      result.grid.gradientY.buffer as ArrayBuffer,
     ])
   }
 }

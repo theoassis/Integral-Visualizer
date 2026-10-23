@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { compileExpression } from './codegen'
 
+function gradientOf(expression: string) {
+  const gradient = compileExpression(expression).gradient
+  if (!gradient) throw new Error(`Gradiente analítico não definido para ${expression}`)
+  return gradient
+}
+
 describe('compileExpression', () => {
   it('respeita a precedência e os parênteses', () => {
     expect(compileExpression('2 + 3 * 4').evaluate()).toBe(14)
@@ -38,16 +44,15 @@ describe('compileExpression', () => {
   })
 
   it('calcula gradientes analíticos por derivação simbólica', () => {
-    const surface = compileExpression('sin(x)*cos(y)')
-    const gradient = surface.gradient({ x: Math.PI / 4, y: Math.PI / 3 })
+    const gradient = gradientOf('sin(x)*cos(y)')({ x: Math.PI / 4, y: Math.PI / 3 })
 
     expect(gradient[0]).toBeCloseTo(Math.SQRT2 / 4)
     expect(gradient[1]).toBeCloseTo(-Math.sqrt(6) / 4)
   })
 
   it('diferencia o produto implícito e parâmetros livres', () => {
-    const product = compileExpression('xy').gradient({ x: 3, y: 4 })
-    const parameterized = compileExpression('sin(a*x)').gradient({ a: 2, x: 0.3 })
+    const product = gradientOf('xy')({ x: 3, y: 4 })
+    const parameterized = gradientOf('sin(a*x)')({ a: 2, x: 0.3 })
 
     expect(product).toEqual([4, 3])
     expect(parameterized[0]).toBeCloseTo(2 * Math.cos(0.6))
@@ -55,18 +60,17 @@ describe('compileExpression', () => {
   })
 
   it('deriva potências e tangente usando regras analíticas', () => {
-    expect(compileExpression('x^2+y^2').gradient({ x: 1, y: 2 })).toEqual([2, 4])
-    expect(compileExpression('tan(x)').gradient({ x: 0.2 })[0]).toBeCloseTo(
-      1 / Math.cos(0.2) ** 2,
-    )
+    expect(gradientOf('x^2+y^2')({ x: 1, y: 2 })).toEqual([2, 4])
+    expect(gradientOf('tan(x)')({ x: 0.2 })[0]).toBeCloseTo(1 / Math.cos(0.2) ** 2)
   })
 
   it('confere derivadas simbólicas com diferenças finitas centrais', () => {
-    const expression = compileExpression('exp(-x^2)*sin(y)+log(x+2)')
+    const source = 'exp(-x^2)*sin(y)+log(x+2)'
+    const expression = compileExpression(source)
     const x = 0.4
     const y = -0.7
     const h = 1e-5
-    const gradient = expression.gradient({ x, y })
+    const gradient = gradientOf(source)({ x, y })
     const dx =
       (expression.evaluate({ x: x + h, y }) - expression.evaluate({ x: x - h, y })) /
       (2 * h)

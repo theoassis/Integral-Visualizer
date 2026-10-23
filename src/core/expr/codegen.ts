@@ -545,10 +545,12 @@ export function compileExpression(source: string): CompiledExpression {
     // Functions without a supported symbolic derivative use render-time grid estimates.
   }
 
-  return Object.freeze({
+  const compiled: CompiledExpression = {
     source: expression,
     variables,
     evaluate: (scope: VariableScope = {}) => evaluateRoot(scope),
-    gradient,
-  })
+    ...(gradient ? { gradient } : {}),
+  }
+
+  return Object.freeze(compiled)
 }

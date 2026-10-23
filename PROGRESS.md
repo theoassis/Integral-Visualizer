@@ -7,10 +7,10 @@
 
 - **Fase atual:** 1 — Fundação e superfícies
 - **Tarefa atual:** portão de revisão matemática da Fase 1
-- **Última sessão:** 2026-10-23
+- **Última sessão:** 2026-10-23 — refinamento do teclado da calculadora científica.
 - **Estado dos testes:** `pnpm test` — 81 testes passando (8 arquivos, 0 falhas)
-- **Estado do build/tipos:** tipos, lint, formatação e build passaram; chunk inicial de 1.511,40 kB (412,78 kB gzip) e Worker separado de 676,71 kB
-- **Último commit:** `feat: improve surface editing and inspection`
+- **Estado do build/tipos:** tipos, lint, formatação e build passaram; chunk inicial de 1.513,07 kB (413,16 kB gzip) e Worker separado de 676,73 kB
+- **Último commit:** esta sessão — `feat: refine scientific calculator keyboard`
 
 ## Painel de fases
 
@@ -323,3 +323,22 @@ Marque conforme forem implementados **e passando**.
   - Prévia local: teclado oculto até abrir o editor; `x²+y²` com limites contendo `π/2`; Viridis selecionável; clique na superfície mostrou, por exemplo, `(x,y,z)≈(1,883,−2,886,11,874)` e `∇f≈(3,766,−5,772)` usando os dados do Worker.
 - **Limitações:** derivação simbólica depende das regras disponíveis no math.js; funções sem regra de diferenciação continuam com normais estimadas pela malha. Desempenho em GPU móvel não medido.
 - **Próximo passo:** portão de revisão matemática da Fase 1. Não iniciar Fase 2 até aprovação explícita.
+
+### Sessão 12
+
+- **Data:** 2026-10-23
+- **Tarefa:** refinar a calculadora do editor de superfícies, inspirada no teclado científico do GeoGebra e adequada à lista de expressões aceita pelo projeto.
+- **Feito:**
+  1. O teclado ganhou teclas agrupadas e dimensionadas para números, variáveis, constantes (`π`, `e`), operações, parênteses, potência, raiz e valor absoluto; categorias `123`, `f(x)` e `ABC` continuam contextuais.
+  2. Funções permitidas são inseridas como modelos fechados (`sin()`, `sqrt()`, `min(,)`, etc.), com o cursor posicionado no argumento. Setas navegam pelo texto, respeitam seleção, `⌫` apaga, `C` limpa e `Aplicar` submete a expressão.
+  3. O visual foi retrabalhado com teclas de hierarquia visual clara, estados de hover/press/foco, transição curta entre grupos e responsividade compatível com a largura estreita do painel. A preferência por movimento reduzido já é respeitada pelas regras globais.
+  4. A superfície ainda aceita apenas a sintaxe que o parser lista como suportada; operadores de derivação e integração não aparecem como teclas funcionais nesta ferramenta. Eles dependem dos módulos de cálculo previstos no plano.
+  5. O build estrito revelou um retorno explícito `gradient: undefined`, incompatível com `exactOptionalPropertyTypes`; o objeto compilado agora omite a propriedade quando não há gradiente. Os testes de gradiente fazem o estreitamento explícito do tipo sem alterar valores, tolerâncias ou expectativas.
+- **Verificações executadas:**
+  - `pnpm exec tsc --noEmit`: passou.
+  - `pnpm exec eslint .`: passou.
+  - `pnpm exec vitest run`: 81 testes passaram em 8 arquivos (0 falhas).
+  - `pnpm exec prettier --check ...`: passou para os arquivos alterados.
+  - `pnpm build` (`tsc -b && vite build`): passou; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB; Vite ainda avisa sobre chunks acima de 500 kB.
+  - Prévia local: inserção por teclado de `sqrt()` e `sin()` com argumentos no cursor; `sqrt(x^2sin(y))` foi aceita e gerou a superfície. A região em que o radicando é negativo permaneceu como buracos, conforme o domínio real da raiz quadrada.
+- **Próximo passo:** portão de revisão matemática da Fase 1. Não iniciar Fase 2 até aprovação explícita do revisor humano.

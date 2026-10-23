@@ -570,35 +570,39 @@ button {
 
 .calculator-keyboard {
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: #101419;
+  border: 1px solid #35434a;
+  border-radius: 0.7rem;
+  background: linear-gradient(155deg, #151d22, #101519 72%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 15%);
 }
 
 .calculator-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 0.28rem;
+  padding: 0.42rem 0.48rem 0;
+  border-bottom: 1px solid #303b41;
 }
 
 .calculator-tab {
-  min-height: 2.15rem;
+  min-width: 3.2rem;
+  min-height: 2rem;
+  padding: 0 0.7rem;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 0.42rem 0.42rem 0 0;
   color: var(--text-muted);
   background: transparent;
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
+  font-weight: 600;
   transition:
     color 140ms ease,
-    border-color 140ms ease,
     background 140ms ease;
 }
 
 .calculator-tab[aria-selected='true'] {
-  border-bottom-color: var(--accent-blue-light);
-  color: var(--text-primary);
-  background: #192126;
+  color: #f2f4f1;
+  background: #29373d;
+  box-shadow: inset 0 -2px 0 #a9c9c1;
 }
 
 .calculator-tab:focus-visible,
@@ -610,9 +614,14 @@ button {
 
 .scientific-calculator {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.3rem;
-  padding: 0.45rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.34rem;
+  padding: 0.55rem;
+  animation: calculator-panel-in 160ms ease-out both;
+}
+
+.scientific-calculator.calculator-keys-fx {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .scientific-calculator.calculator-keys-ABC {
@@ -620,24 +629,91 @@ button {
 }
 
 .scientific-calculator .key {
-  min-height: 1.85rem;
-  padding: 0.25rem 0.2rem;
-  border: 1px solid #303a40;
-  border-radius: 0.25rem;
-  color: var(--text-primary);
-  background: #1b2429;
+  min-width: 0;
+  min-height: 2.15rem;
+  padding: 0.26rem 0.18rem;
+  border: 1px solid #46545a;
+  border-radius: 0.42rem;
+  color: #e8ece8;
+  background: linear-gradient(180deg, #354147, #29343a);
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font-math);
+  font-size: 0.78rem;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 4%),
+    0 2px 3px rgb(0 0 0 / 14%);
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .scientific-calculator .key:hover {
-  border-color: #70898a;
-  background: #29373b;
+  transform: translateY(-1px);
+  border-color: #819b98;
+  background: linear-gradient(180deg, #425157, #303d42);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 18%);
 }
 
-.scientific-calculator .utility-key {
-  color: #e5c394;
+.scientific-calculator .key:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 25%);
+}
+
+.scientific-calculator .key-template {
+  color: #d8e7d9;
+  background: linear-gradient(180deg, #3b4948, #2b3939);
+}
+
+.scientific-calculator .key-operation {
+  color: #e8c99f;
+  background: linear-gradient(180deg, #41413d, #302f2c);
+}
+
+.scientific-calculator .key-utility {
+  color: #e6b7a9;
+  background: linear-gradient(180deg, #443b3a, #342e2d);
+}
+
+.scientific-calculator .key-navigation,
+.scientific-calculator .key-navigation-start {
+  grid-column: span 2;
+  color: #c3d1d3;
+  background: #222d32;
+}
+
+.scientific-calculator .key-navigation-start {
+  grid-column: 1 / span 2;
+}
+
+.scientific-calculator .key-submit {
+  grid-column: span 2;
+  color: #14231f;
+  background: linear-gradient(180deg, #c3d4c9, #9eb9aa);
+  border-color: #d3e1d8;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.calculator-keyboard-hint {
+  margin: 0;
+  padding: 0 0.6rem 0.45rem;
+  color: #9eaaa9;
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+@keyframes calculator-panel-in {
+  from {
+    opacity: 0.55;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .domain-controls {

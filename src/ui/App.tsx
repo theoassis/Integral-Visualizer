@@ -37,61 +37,80 @@ const DEFAULT_DOMAIN_DRAFT = {
 }
 type DomainField = keyof typeof DEFAULT_DOMAIN_DRAFT
 type CalculatorTab = '123' | 'f(x)' | 'ABC'
+type CalculatorKey = {
+  label: string
+  token: string
+  kind?:
+    'template' | 'utility' | 'operation' | 'navigation' | 'navigation-start' | 'submit'
+  cursorOffset?: number
+}
 const CALCULATOR_TABS: CalculatorTab[] = ['123', 'f(x)', 'ABC']
-const CALCULATOR_KEYS: Record<CalculatorTab, { label: string; token: string }[]> = {
+const CALCULATOR_KEYS: Record<CalculatorTab, CalculatorKey[]> = {
   '123': [
+    { label: 'x', token: 'x' },
+    { label: 'y', token: 'y' },
     { label: 'π', token: 'pi' },
     { label: 'e', token: 'e' },
     { label: '(', token: '(' },
     { label: ')', token: ')' },
+    { label: 'x²', token: '^2', kind: 'template' },
+    { label: 'xʸ', token: '^()', kind: 'template', cursorOffset: 2 },
+    { label: '√', token: 'sqrt()', kind: 'template', cursorOffset: 5 },
+    { label: '|x|', token: 'abs()', kind: 'template', cursorOffset: 4 },
+    { label: ',', token: ',' },
+    { label: '.', token: '.' },
     { label: '7', token: '7' },
     { label: '8', token: '8' },
     { label: '9', token: '9' },
-    { label: '÷', token: '/' },
+    { label: '÷', token: '/', kind: 'operation' },
+    { label: '×', token: '*', kind: 'operation' },
+    { label: '−', token: '-', kind: 'operation' },
     { label: '4', token: '4' },
     { label: '5', token: '5' },
     { label: '6', token: '6' },
-    { label: '×', token: '*' },
+    { label: '+', token: '+', kind: 'operation' },
+    { label: 'C', token: 'clear', kind: 'utility' },
+    { label: '⌫', token: 'backspace', kind: 'utility' },
     { label: '1', token: '1' },
     { label: '2', token: '2' },
     { label: '3', token: '3' },
-    { label: '−', token: '-' },
     { label: '0', token: '0' },
-    { label: '.', token: '.' },
-    { label: '^', token: '^' },
-    { label: '+', token: '+' },
-    { label: ',', token: ',' },
-    { label: '⌫', token: 'backspace' },
-    { label: 'C', token: 'clear' },
+    { label: '←', token: 'left', kind: 'navigation-start' },
+    { label: '→', token: 'right', kind: 'navigation' },
+    { label: 'Aplicar ↵', token: 'enter', kind: 'submit' },
   ],
   'f(x)': [
-    { label: 'sen(', token: 'sen(' },
-    { label: 'cos(', token: 'cos(' },
-    { label: 'tan(', token: 'tan(' },
-    { label: '√(', token: 'sqrt(' },
-    { label: 'asin(', token: 'asin(' },
-    { label: 'acos(', token: 'acos(' },
-    { label: 'atan(', token: 'atan(' },
-    { label: 'tg(', token: 'tg(' },
-    { label: 'sinh(', token: 'sinh(' },
-    { label: 'cosh(', token: 'cosh(' },
-    { label: 'tanh(', token: 'tanh(' },
-    { label: 'exp(', token: 'exp(' },
-    { label: 'log(', token: 'log(' },
-    { label: 'ln(', token: 'ln(' },
-    { label: 'abs(', token: 'abs(' },
-    { label: 'atan2(', token: 'atan2(' },
-    { label: 'min(', token: 'min(' },
-    { label: 'max(', token: 'max(' },
-    { label: 'pow(', token: 'pow(' },
-    { label: 'floor(', token: 'floor(' },
-    { label: '⌫', token: 'backspace' },
-    { label: 'C', token: 'clear' },
+    { label: 'sen', token: 'sin()', kind: 'template', cursorOffset: 4 },
+    { label: 'cos', token: 'cos()', kind: 'template', cursorOffset: 4 },
+    { label: 'tan', token: 'tan()', kind: 'template', cursorOffset: 4 },
+    { label: 'senh', token: 'sinh()', kind: 'template', cursorOffset: 5 },
+    { label: 'cosh', token: 'cosh()', kind: 'template', cursorOffset: 5 },
+    { label: 'tanh', token: 'tanh()', kind: 'template', cursorOffset: 5 },
+    { label: '√', token: 'sqrt()', kind: 'template', cursorOffset: 5 },
+    { label: '|x|', token: 'abs()', kind: 'template', cursorOffset: 4 },
+    { label: 'sen⁻¹', token: 'asin()', kind: 'template', cursorOffset: 5 },
+    { label: 'cos⁻¹', token: 'acos()', kind: 'template', cursorOffset: 5 },
+    { label: 'tan⁻¹', token: 'atan()', kind: 'template', cursorOffset: 5 },
+    { label: 'ln', token: 'ln()', kind: 'template', cursorOffset: 3 },
+    { label: 'log', token: 'log()', kind: 'template', cursorOffset: 4 },
+    { label: 'exp', token: 'exp()', kind: 'template', cursorOffset: 4 },
+    { label: 'min', token: 'min(,)', kind: 'template', cursorOffset: 4 },
+    { label: 'max', token: 'max(,)', kind: 'template', cursorOffset: 4 },
+    { label: 'pow', token: 'pow(,)', kind: 'template', cursorOffset: 4 },
+    { label: 'atan2', token: 'atan2(,)', kind: 'template', cursorOffset: 6 },
+    { label: 'floor', token: 'floor()', kind: 'template', cursorOffset: 6 },
+    { label: '⌫', token: 'backspace', kind: 'utility' },
+    { label: 'C', token: 'clear', kind: 'utility' },
   ],
-  ABC: 'xyabcdefghijklmnopqrstuvwz'
+  ABC: 'abcdefghijklmnopqrstuvwxyz'
     .split('')
     .map((letter) => ({ label: letter, token: letter })),
 }
+/*
+ * Keyboard tokens deliberately match the safe expression parser's whitelist.
+ * Differential and integral operators belong to their dedicated tools; placing
+ * them in this surface-function editor would suggest unsupported syntax.
+ */
 const DOMAIN_PRESETS = [
   { label: '−π', value: '-pi' },
   { label: '−π/2', value: '-pi/2' },
@@ -405,7 +424,8 @@ export default function App() {
     }
   }
 
-  const insertCalculatorToken = (token: string) => {
+  const insertCalculatorToken = (key: CalculatorKey) => {
+    const { token, cursorOffset, kind } = key
     const input = formulaInputRef.current
     const start = input?.selectionStart ?? formulaDraft.length
     const end = input?.selectionEnd ?? formulaDraft.length
@@ -421,13 +441,31 @@ export default function App() {
       nextDraft = formulaDraft.slice(0, from) + formulaDraft.slice(end)
       inserted = ''
       cursor = from
+    } else if (token === 'left' || token === 'right') {
+      const nextCursor =
+        start !== end
+          ? token === 'left'
+            ? start
+            : end
+          : token === 'left'
+            ? Math.max(0, start - 1)
+            : Math.min(formulaDraft.length, end + 1)
+      nextDraft = formulaDraft
+      cursor = nextCursor
+    } else if (token === 'enter') {
+      input?.form?.requestSubmit()
+      return
     } else {
       nextDraft = formulaDraft.slice(0, start) + token + formulaDraft.slice(end)
+      cursor = start + (cursorOffset ?? inserted.length)
     }
 
     setFormulaDraft(nextDraft)
     setFormulaError(null)
-    if (token !== 'backspace') cursor = start + inserted.length
+    if (kind === 'template') cursor = start + (cursorOffset ?? inserted.length)
+    else if (token !== 'backspace' && token !== 'left' && token !== 'right') {
+      cursor = start + inserted.length
+    }
     requestAnimationFrame(() => {
       formulaInputRef.current?.focus()
       formulaInputRef.current?.setSelectionRange(cursor, cursor)
@@ -565,29 +603,35 @@ export default function App() {
                     aria-labelledby={`calculator-tab-${calculatorTab}`}
                     aria-label={`Teclado ${calculatorTab}`}
                   >
-                    {CALCULATOR_KEYS[calculatorTab].map(({ label, token }) => (
+                    {CALCULATOR_KEYS[calculatorTab].map((key) => (
                       <button
-                        className={
-                          ['clear', 'backspace'].includes(token)
-                            ? 'key utility-key'
-                            : 'key'
-                        }
-                        key={`${label}-${token}`}
+                        className={`key${key.kind ? ` key-${key.kind}` : ''}`}
+                        key={`${key.label}-${key.token}`}
                         type="button"
                         aria-label={
-                          token === 'backspace'
+                          key.token === 'backspace'
                             ? 'Apagar caractere'
-                            : token === 'clear'
+                            : key.token === 'clear'
                               ? 'Limpar fórmula'
-                              : `Inserir ${label}`
+                              : key.token === 'left'
+                                ? 'Mover cursor à esquerda'
+                                : key.token === 'right'
+                                  ? 'Mover cursor à direita'
+                                  : key.token === 'enter'
+                                    ? 'Aplicar expressão'
+                                    : `Inserir ${key.label}`
                         }
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => insertCalculatorToken(token)}
+                        onClick={() => insertCalculatorToken(key)}
                       >
-                        {label}
+                        {key.label}
                       </button>
                     ))}
                   </div>
+                  <p className="calculator-keyboard-hint">
+                    Modelos deixam o cursor no espaço a preencher; setas navegam e
+                    Aplicar atualiza a superfície.
+                  </p>
                 </div>
                 <fieldset className="domain-controls">
                   <legend>Domínio de exploração</legend>

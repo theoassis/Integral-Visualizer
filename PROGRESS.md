@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 2 — Integral dupla retangular
-- **Tarefa atual:** F2-T1 concluída; próxima F2-T2 — integral iterada em retângulos
-- **Última sessão:** 2026-10-23 — início do núcleo de quadratura da Fase 2.
-- **Estado dos testes:** `pnpm test` — 92 testes passando (9 arquivos, 0 falhas)
+- **Tarefa atual:** F2-T2 concluída — integral iterada retangular; próxima F2-T3 — regras de Riemann em retângulos
+- **Última sessão:** 2026-10-23 — integral iterada retangular com Gauss–Legendre.
+- **Estado dos testes:** `pnpm exec vitest run` — 100 testes passando (10 arquivos, 0 falhas)
 - **Estado do build/tipos:** TypeScript da aplicação passou com `ignoreDeprecations` sobrescrito para `5.0`; lint, formatação e `vite build` passaram. `pnpm build` está bloqueado por `ignoreDeprecations: "6.0"` na alteração local de `tsconfig.app.json`; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB.
-- **Último commit:** esta sessão — `feat: implement Gauss-Legendre quadrature`
+- **Último commit:** esta sessão — `feat: integrate over rectangular domains`
 
 ## Painel de fases
 
@@ -43,6 +43,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.          |
 | F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                       |
 | F2-T1 | Nós e pesos de Gauss–Legendre                              | ✅     | Regras simétricas crescentes em [−1,1], testes de momentos até grau 2n−1, ordem alta 256 e validação de entrada.                                      |
+| F2-T2 | Integral dupla iterada em retângulos                       | ✅     | Produto tensorial de Gauss–Legendre com limites e orientação configuráveis; A1–A3 verificados contra os valores exatos.                               |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -50,9 +51,9 @@ Marque conforme forem implementados **e passando**.
 
 | ID  | Descrição                                            | Implementado | Passando |
 | --- | ---------------------------------------------------- | ------------ | -------- |
-| A1  | ∬ xy dA em [0,1]² = 1/4                              | ⬜           | ⬜       |
-| A2  | ∬ (x²+y²) dA em [0,1]² = 2/3                         | ⬜           | ⬜       |
-| A3  | ∬ sen x sen y em [0,π]² = 4                          | ⬜           | ⬜       |
+| A1  | ∬ xy dA em [0,1]² = 1/4                              | ✅           | ✅       |
+| A2  | ∬ (x²+y²) dA em [0,1]² = 2/3                         | ✅           | ✅       |
+| A3  | ∬ sen x sen y em [0,π]² = 4                          | ✅           | ✅       |
 | A4  | ∬ (x²+y²) no disco unitário = π/2                    | ⬜           | ⬜       |
 | A5  | ∬ x dA no triângulo 0≤y≤x≤1 = 1/3                    | ⬜           | ⬜       |
 | A6  | ∬ (x+y) entre y=x² e y=√x = 3/10                     | ⬜           | ⬜       |
@@ -368,3 +369,27 @@ Marque conforme forem implementados **e passando**.
   - `pnpm build` não completou porque o `tsc -b` rejeita a opção `ignoreDeprecations: "6.0"` do `tsconfig.app.json` local. O arquivo já estava modificado antes desta tarefa e foi preservado; o Vite isolado passou. O aviso de chunk >500 kB continua.
 - **Não verificado:** a regra ainda não está integrada a `integral2TypeI` nem à interface; não há resultado de A1–A4 nesta tarefa. O limite superior 256 é política de segurança/recursos, não uma exigência matemática do método.
 - **Próximo passo:** F2-T2 — implementar e testar a integral dupla iterada em retângulos usando Gauss–Legendre; cobrir os casos retangulares A1–A3 com valores exatos antes de expor o cálculo na UI.
+
+### Sessão 14
+
+- **Data:** 2026-10-23
+- **Tarefa:** F2-T2 — implementar a integral dupla iterada em retângulos pelo produto tensorial de Gauss–Legendre.
+- **Feito:**
+  1. Criada `integral2Rectangular(f, xBounds, yBounds, order)`, que mapeia uma regra de Gauss–Legendre de `[-1,1]` para cada intervalo e combina os pesos para aproximar a integral sobre o retângulo.
+  2. A API mantém a orientação de limites invertidos, retorna zero para um retângulo degenerado sem amostrar a função, soma com compensação de Kahan e rejeita limites, amostras ou resultados não finitos. A ordem usa a validação existente (inteiro entre 1 e 256).
+  3. A1–A3 da tabela de referência foram implementados e passaram: integral de `xy` em `[0,1]²` é `1/4`; integral de `x²+y²` é `2/3`; integral de `sen(x)sen(y)` em `[0,π]²` é `4`. Em A3, `x` e `y` estão em radianos, como definido para o núcleo.
+- **Verificações matemáticas à mão:**
+  - A1: `(∫₀¹ x dx)(∫₀¹ y dy) = (1/2)(1/2) = 1/4`.
+  - A2: `∫₀¹∫₀¹(x²+y²) dy dx = 1/3 + 1/3 = 2/3`.
+  - A3: `(∫₀^π sen x dx)² = (2)(2) = 4`.
+  - Para A1 e A2 a regra de ordem 2 é exata em aritmética exata, pois cada polinômio em cada variável tem grau no máximo 2. A3 usa ordem 16 e a comparação do teste exige erro relativo menor que `10⁻¹⁰`.
+- **Verificações executadas:**
+  - Teste direcionado: 8 casos passaram.
+  - `pnpm exec vitest run`: 100 testes passaram em 10 arquivos (0 falhas).
+  - `pnpm exec eslint .`: passou.
+  - TypeScript: aplicação (`tsconfig.app.json` com `--ignoreDeprecations 5.0`) e configuração Node passaram.
+  - Prettier e `git diff --check`: passaram.
+  - `pnpm exec vite build`: passou; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB; Vite emitiu aviso de chunk acima de 500 kB.
+  - `pnpm build`: não completou porque `tsc -b` rejeita `ignoreDeprecations: "6.0"` no `tsconfig.app.json`, modificação local preexistente que foi preservada.
+- **Limitações:** o cálculo aceita somente retângulos com limites constantes. Pontos singulares ou não finitos são rejeitados; integrais impróprias, regiões de tipo I/II e interface ainda não fazem parte desta tarefa. A aproximação não apresenta estimativa de erro adaptativa.
+- **Próximo passo:** F2-T3 — regras de soma de Riemann retangulares e verificação de convergência conforme o plano.

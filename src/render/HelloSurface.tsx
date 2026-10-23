@@ -31,7 +31,7 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { CriticalPointData, VisualizableFunction } from '../core/functions/types'
-import { createSurfaceGrid, estimateGridGradient } from './surfaceGrid'
+import { estimateGridGradient, SURFACE_SEGMENTS, type SurfaceGrid } from './surfaceGrid'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -55,6 +55,7 @@ export interface SurfaceDiagnostics {
 
 interface HelloSurfaceProps {
   func: VisualizableFunction
+  calculatedGrid: SurfaceGrid | null
   autoRotate: boolean
   showCriticalPoints: boolean
   showGradient: boolean
@@ -69,7 +70,6 @@ interface HelloSurfaceProps {
 /*  Constants & Color Palette                                          */
 /* ------------------------------------------------------------------ */
 
-const SEGMENTS = 96
 const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -148,6 +148,7 @@ const SURFACE_FRAGMENT_SHADER = `
 
 export default function HelloSurface({
   func,
+  calculatedGrid,
   autoRotate,
   showCriticalPoints,
   showGradient,
@@ -311,7 +312,7 @@ export default function HelloSurface({
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    if (!container || !calculatedGrid) return
 
     let renderer: WebGLRenderer
     try {
@@ -388,7 +389,7 @@ export default function HelloSurface({
       mesh: surfaceMesh,
       material: surfaceMaterial,
       diagnostics,
-    } = createSurfaceMesh(func)
+    } = createSurfaceMesh(func, calculatedGrid)
     onSurfaceDiagnosticsRef.current?.(diagnostics)
     surfaceMeshRef.current = surfaceMesh
     surfaceMaterialRef.current = surfaceMaterial
@@ -491,7 +492,7 @@ export default function HelloSurface({
       renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [func, handleCanvasEvent])
+  }, [func, calculatedGrid, handleCanvasEvent])
 
   return <div className="scene-canvas" ref={containerRef} />
 }
@@ -500,13 +501,15 @@ export default function HelloSurface({
 /*  Surface Generation (Decoupled from specific formula)               */
 /* ------------------------------------------------------------------ */
 
-function createSurfaceMesh(func: VisualizableFunction): {
+function createSurfaceMesh(
+  func: VisualizableFunction,
+  grid: SurfaceGrid,
+): {
   mesh: Mesh<BufferGeometry, ShaderMaterial>
   material: ShaderMaterial
   diagnostics: SurfaceDiagnostics
 } {
-  const grid = createSurfaceGrid(func, SEGMENTS)
-  const sideLength = SEGMENTS + 1
+  const sideLength = SURFACE_SEGMENTS + 1
   const colors = new Float32Array(grid.validVertices.length * 3)
   const normals = new Float32Array(grid.validVertices.length * 3)
   const rangeSpan = Math.max(func.range.max - func.range.min, 0.001)

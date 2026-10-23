@@ -95,6 +95,7 @@ export function createExpressionFunction(
   source: string,
   parameterValues: Readonly<Record<string, number>> = {},
   domain: VisualizableFunction['domain'] = DOMAIN,
+  sampledRange?: VisualizableFunction['range'],
 ): VisualizableFunction {
   validateDomain(domain)
   const expression = compileExpression(source)
@@ -127,7 +128,7 @@ export function createExpressionFunction(
       y: { ...domain.y },
     },
     domainLabel: describeDomain(domain),
-    range: sampleRange(evaluate, domain),
+    range: sampledRange ?? sampleRange(evaluate, domain),
     evaluate,
     criticalPoints: [],
     analysis: [],

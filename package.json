@@ -19,6 +19,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "comlink": "^4.4.2",
     "mathjs": "^15.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

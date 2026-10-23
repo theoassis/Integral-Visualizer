@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 1 — Fundação e superfícies
-- **Tarefa atual:** F1-T4 — mover avaliações para Web Worker com Comlink, debounce e cancelamento por id
+- **Tarefa atual:** F1-T5 — completar controles de parâmetros e animação
 - **Última sessão:** 2026-10-22
-- **Estado dos testes:** `pnpm test` — 62 testes passando (4 arquivos, 0 falhas)
-- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.497,57 kB excede 500 kB
-- **Último commit:** `feat: aprimora editor científico de superfícies`
+- **Estado dos testes:** `pnpm test` — 65 testes passando (5 arquivos, 0 falhas)
+- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.502,55 kB excede 500 kB; Worker emitido separadamente (675,69 kB)
+- **Último commit:** `feat: move surface calculations to worker`
 
 ## Painel de fases
 
@@ -39,7 +39,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal.                  |
 | F1-T2 | Parser seguro de expressões                                | ✅     | Commit `3b63752`; lista branca, aliases, rejeição de nós perigosos e testes. A sessão atual corrige a notação escolar concatenada `senxtany`.         |
 | F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha. |
-| F1-T4 | Cálculo em Web Worker                                      | ⬜     | Próxima tarefa: Worker, Comlink, debounce e cancelamento por id.                                                                                      |
+| F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                     |
 | F1-T5 | Parâmetros livres e sliders                                | 🟨     | Slider básico de parâmetro entregue em F1-T3; controles de animação e refinamentos ainda pendentes.                                                   |
 | F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                                             |
 
@@ -263,3 +263,22 @@ Marque conforme forem implementados **e passando**.
   - Prévia local: inserção pelo teclado gerou `sen(x)*tan(y)`; limites `[0,1]×[0,1]` foram aplicados a `x²+y²`, com `z=0,5` no centro e faixa visual `[-0,08, 2,08]`; `senxtany` não gerou sliders espúrios, mostrou 194 buracos e não teve erro no console.
 - **Não verificado:** inspeção em GPU móvel; derivação simbólica algébrica genérica. O painel atual explica a avaliação e geração da malha, não fornece uma sequência de identidades algébricas. O portão de revisão matemática da Fase 1 continua pendente até F1-T6.
 - **Próximo passo:** F1-T4 — mover as avaliações para Web Worker com Comlink, debounce e cancelamento por id; manter expresso o limite visual `10⁶` e documentar os buracos em resultados fora da faixa.
+
+### Sessão 9
+
+- **Data:** 2026-10-22
+- **Tarefa:** F1-T4 — transferir o cálculo da faixa e da malha para Web Worker via Comlink.
+- **Feito:**
+  1. Adicionado Comlink 4.4.2 como dependência direta e criado Worker de módulo com protocolo tipado para calcular expressões e gerar a malha 97×97.
+  2. A amostragem da malha cede execução entre blocos de linhas para receber cancelamentos sem bloquear a interface; buffers de posições, alturas e validade são transferidos ao thread principal sem cópia.
+  3. Fórmulas aplicadas e alterações de parâmetros passam por debounce; cada nova solicitação cancela o id anterior. Resultados atrasados são descartados, e uma falha mantém a superfície válida anterior.
+  4. A renderização Three.js recebe a malha pronta e não amostra mais a função na thread principal. O exemplo inicial também aguarda o Worker antes de montar a cena.
+  5. Adicionados testes para faixa e dimensões da malha, validação de expressão e cancelamento por id.
+- **Verificações executadas:**
+  - `tsc -b`: passou.
+  - Vitest: 65 testes passaram em 5 arquivos (0 falhas).
+  - ESLint: passou; Prettier: passou.
+  - Build Vite: passou; chunk inicial de 1.502,55 kB continua acima do aviso de 500 kB e o Worker foi emitido separadamente em 675,69 kB.
+  - Prévia local: exemplo inicial renderizou após a inicialização do Worker; `x²+y²` foi aplicado e o painel confirmou a avaliação no centro, faixa estimada e superfície; `danger(1)` exibiu erro e preservou a superfície anterior.
+- **Não verificado:** carga em GPU/dispositivo móvel; medição comparativa de responsividade em hardware lento. A faixa permanece uma estimativa por amostragem, conforme a revisão matemática anterior.
+- **Próximo passo:** F1-T5 — completar controles de parâmetros e animação; F1-T6 permanece pendente antes do portão matemático da Fase 1.

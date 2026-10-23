@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
+import * as Comlink from 'comlink'
 import HelloSurface from '../render/HelloSurface'
 import type { PointInfo, SurfaceDiagnostics } from '../render/HelloSurface'
 import {
@@ -8,6 +9,13 @@ import {
   sinCosFunction,
 } from '../core/functions'
 import type { VisualizableFunction } from '../core/functions'
+import type { SurfaceGrid } from '../render/surfaceGrid'
+import { SURFACE_SEGMENTS } from '../render/surfaceGrid'
+import type {
+  SurfaceCalculationRequest,
+  SurfaceCalculationResult,
+  SurfaceWorkerApi,
+} from '../workers/surfaceCalculation'
 import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 
@@ -86,6 +94,9 @@ export default function App() {
   const [domainDraft, setDomainDraft] = useState(DEFAULT_DOMAIN_DRAFT)
   const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
   const [formulaError, setFormulaError] = useState<string | null>(null)
+  const [workerReady, setWorkerReady] = useState(false)
+  const [calculating, setCalculating] = useState(false)
+  const [calculatedGrid, setCalculatedGrid] = useState<SurfaceGrid | null>(null)
   const [surfaceDiagnostics, setSurfaceDiagnostics] =
     useState<SurfaceDiagnostics | null>(null)
   const [autoRotate, setAutoRotate] = useState(true)
@@ -98,6 +109,141 @@ export default function App() {
   >(null)
   const [hoveredPoint, setHoveredPoint] = useState<PointInfo | null>(null)
   const formulaInputRef = useRef<HTMLInputElement>(null)
+  const workerRef = useRef<Comlink.Remote<SurfaceWorkerApi> | null>(null)
+  const activeJobIdRef = useRef(0)
+  const nextJobIdRef = useRef(0)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingRequestRef = useRef<
+    Map<
+      number,
+      {
+        expression: string
+        parameters: Record<string, number>
+        domain: VisualizableFunction['domain']
+        apply: boolean
+        restoreExample: boolean
+      }
+    >
+  >(new Map())
+
+  const requestSurfaceCalculation = useCallback(
+    (
+      expression: string,
+      parameters: Record<string, number>,
+      domain: VisualizableFunction['domain'],
+      apply: boolean,
+      debounceMs = 180,
+      restoreExample = false,
+    ) => {
+      const worker = workerRef.current
+      if (!worker) {
+        setFormulaError(
+          'O calculador em segundo plano ainda está iniciando. Tente novamente em instantes.',
+        )
+        return
+      }
+
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      const previousJobId = activeJobIdRef.current
+      if (previousJobId) void worker.cancel(previousJobId)
+      const jobId = ++nextJobIdRef.current
+      activeJobIdRef.current = jobId
+      pendingRequestRef.current.clear()
+      pendingRequestRef.current.set(jobId, {
+        expression,
+        parameters,
+        domain,
+        apply,
+        restoreExample,
+      })
+      setCalculating(true)
+      setFormulaError(null)
+
+      const request: SurfaceCalculationRequest = {
+        jobId,
+        expression,
+        parameters,
+        domain,
+        segments: SURFACE_SEGMENTS,
+      }
+      debounceRef.current = setTimeout(() => {
+        void worker.calculate(request).then(
+          (result: SurfaceCalculationResult | null) => {
+            if (!result || result.jobId !== activeJobIdRef.current) return
+            const pending = pendingRequestRef.current.get(result.jobId)
+            if (!pending) return
+            pendingRequestRef.current.delete(result.jobId)
+            setCalculatedGrid(result.grid)
+            setCalculating(false)
+            if (pending.apply) {
+              const nextFunction = createExpressionFunction(
+                pending.expression,
+                pending.parameters,
+                pending.domain,
+                result.range,
+              )
+              setActiveFunction(pending.restoreExample ? fn : nextFunction)
+              setParameterValues(pending.restoreExample ? {} : pending.parameters)
+              setFormulaDraft(nextFunction.formulaPlain.replace(/^z =\s*/, ''))
+              setAppliedExpression(
+                pending.restoreExample ? null : pending.expression.trim(),
+              )
+              setSurfaceDiagnostics(null)
+              setShowCriticalPoints(pending.restoreExample)
+              setShowGradient(false)
+              setHoveredPoint(null)
+            }
+          },
+          (error: unknown) => {
+            if (jobId !== activeJobIdRef.current) return
+            pendingRequestRef.current.delete(jobId)
+            setCalculating(false)
+            setFormulaError(
+              error instanceof Error
+                ? error.message
+                : 'Não foi possível calcular esta superfície.',
+            )
+          },
+        )
+      }, debounceMs)
+      return jobId
+    },
+    [],
+  )
+
+  useEffect(() => {
+    const worker = new Worker(
+      new URL('../workers/surface.worker.ts', import.meta.url),
+      {
+        type: 'module',
+      },
+    )
+    const api = Comlink.wrap<SurfaceWorkerApi>(worker)
+    workerRef.current = api
+    void api.ready().then(() => setWorkerReady(true))
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      const activeJobId = activeJobIdRef.current
+      if (activeJobId) void api.cancel(activeJobId)
+      void api[Comlink.releaseProxy]()
+      worker.terminate()
+      workerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!workerReady || calculatedGrid) return
+    requestSurfaceCalculation(
+      DEFAULT_EXPRESSION,
+      {},
+      {
+        x: { min: -Math.PI, max: Math.PI },
+        y: { min: -Math.PI, max: Math.PI },
+      },
+      false,
+      0,
+    )
+  }, [workerReady, calculatedGrid, requestSurfaceCalculation])
 
   const handlePointHover = useCallback((info: PointInfo | null) => {
     setHoveredPoint(info)
@@ -124,20 +270,7 @@ export default function App() {
       const nextParameterValues = Object.fromEntries(
         parameters.map((name) => [name, 1]),
       )
-      const nextFunction = createExpressionFunction(
-        formulaDraft,
-        nextParameterValues,
-        domain,
-      )
-      setActiveFunction(nextFunction)
-      setParameterValues(nextParameterValues)
-      setFormulaDraft(nextFunction.formulaPlain.replace(/^z =\s*/, ''))
-      setAppliedExpression(formulaDraft.trim())
-      setFormulaError(null)
-      setSurfaceDiagnostics(null)
-      setShowCriticalPoints(false)
-      setShowGradient(false)
-      setHoveredPoint(null)
+      requestSurfaceCalculation(formulaDraft, nextParameterValues, domain, true)
     } catch (error) {
       setFormulaError(
         error instanceof Error
@@ -148,24 +281,36 @@ export default function App() {
   }
 
   const handleRestoreExample = () => {
-    setActiveFunction(fn)
-    setParameterValues({})
     setFormulaDraft(DEFAULT_EXPRESSION)
     setDomainDraft(DEFAULT_DOMAIN_DRAFT)
-    setAppliedExpression(null)
     setFormulaError(null)
     setSurfaceDiagnostics(null)
     setShowCriticalPoints(true)
     setShowGradient(false)
     setHoveredPoint(null)
+    requestSurfaceCalculation(
+      DEFAULT_EXPRESSION,
+      {},
+      {
+        x: { min: -Math.PI, max: Math.PI },
+        y: { min: -Math.PI, max: Math.PI },
+      },
+      true,
+      180,
+      true,
+    )
   }
 
   const handleParameterChange = (name: string, value: number) => {
     const nextValues = { ...parameterValues, [name]: value }
     setParameterValues(nextValues)
     if (appliedExpression) {
-      setActiveFunction(
-        createExpressionFunction(appliedExpression, nextValues, activeFunction.domain),
+      requestSurfaceCalculation(
+        appliedExpression,
+        nextValues,
+        activeFunction.domain,
+        true,
+        120,
       )
     }
   }
@@ -281,6 +426,13 @@ export default function App() {
               </div>
               <p id="formula-help" className="formula-help">
                 Escreva a função ou use o teclado científico. Trigonometria em radianos.
+              </p>
+              <p className="formula-help" role="status" aria-live="polite">
+                {!workerReady
+                  ? 'Iniciando calculador em segundo plano…'
+                  : calculating
+                    ? 'Calculando a superfície em segundo plano…'
+                    : 'Cálculos da malha executados em Web Worker.'}
               </p>
               <div
                 className="scientific-calculator"
@@ -556,6 +708,7 @@ export default function App() {
 
           <HelloSurface
             func={activeFunction}
+            calculatedGrid={calculatedGrid}
             autoRotate={autoRotate}
             showCriticalPoints={showCriticalPoints}
             showGradient={showGradient}

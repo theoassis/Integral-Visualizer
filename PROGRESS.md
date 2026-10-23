@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 2 — Integral dupla retangular
-- **Tarefa atual:** F2-T2 concluída — integral iterada retangular; próxima F2-T3 — regras de Riemann em retângulos
-- **Última sessão:** 2026-10-23 — integral iterada retangular com Gauss–Legendre.
-- **Estado dos testes:** `pnpm exec vitest run` — 100 testes passando (10 arquivos, 0 falhas)
+- **Tarefa atual:** F2-T3 concluída — regras de Riemann retangulares; próxima F2-T4 — visualização de prismas e painel de resultados
+- **Última sessão:** 2026-10-23 — somas de Riemann e estimativa por refinamento.
+- **Estado dos testes:** `pnpm exec vitest run` — 113 testes passando (11 arquivos, 0 falhas)
 - **Estado do build/tipos:** TypeScript da aplicação passou com `ignoreDeprecations` sobrescrito para `5.0`; lint, formatação e `vite build` passaram. `pnpm build` está bloqueado por `ignoreDeprecations: "6.0"` na alteração local de `tsconfig.app.json`; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB.
-- **Último commit:** esta sessão — `feat: integrate over rectangular domains`
+- **Último commit:** esta sessão — `feat: add rectangular Riemann sums`
 
 ## Painel de fases
 
@@ -44,6 +44,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                       |
 | F2-T1 | Nós e pesos de Gauss–Legendre                              | ✅     | Regras simétricas crescentes em [−1,1], testes de momentos até grau 2n−1, ordem alta 256 e validação de entrada.                                      |
 | F2-T2 | Integral dupla iterada em retângulos                       | ✅     | Produto tensorial de Gauss–Legendre com limites e orientação configuráveis; A1–A3 verificados contra os valores exatos.                               |
+| F2-T3 | Regras de soma de Riemann retangulares                     | ✅     | Regras esquerda/direita/médio/inferior/superior/aleatória; refinamento n→2n com estimativa; convergência de ordem 1 e 2 testada.                      |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -393,3 +394,33 @@ Marque conforme forem implementados **e passando**.
   - `pnpm build`: não completou porque `tsc -b` rejeita `ignoreDeprecations: "6.0"` no `tsconfig.app.json`, modificação local preexistente que foi preservada.
 - **Limitações:** o cálculo aceita somente retângulos com limites constantes. Pontos singulares ou não finitos são rejeitados; integrais impróprias, regiões de tipo I/II e interface ainda não fazem parte desta tarefa. A aproximação não apresenta estimativa de erro adaptativa.
 - **Próximo passo:** F2-T3 — regras de soma de Riemann retangulares e verificação de convergência conforme o plano.
+
+### Sessão 15
+
+- **Data:** 2026-10-23
+- **Tarefa:** F2-T3 — implementar regras de soma de Riemann retangulares e conferir suas ordens de convergência.
+- **Feito:**
+  1. Criada `riemann2Rectangular` com amostragem à esquerda, à direita, no ponto médio, inferior/superior por cantos amostrados e aleatória. Número de subdivisões em x e y pode variar independentemente; limites invertidos preservam o sinal da integral.
+  2. A regra aleatória aceita gerador fornecido pelo chamador para reprodução dos resultados. A malha é limitada a um milhão de células, as somas usam compensação numérica e valores não finitos são rejeitados.
+  3. Criada `compareRiemannRefinement`, que compara `n×m` com `2n×2m` e fornece estimativas de erro absoluto/relativo. Para ponto médio aplica extrapolação com ordem 2; para as demais regras usa ordem 1 como heurística. São estimativas de refinamento, não limites certificados; a regra aleatória ainda contém ruído de amostragem.
+  4. “Inferior” e “superior” selecionam as menores/maiores contribuições entre os quatro cantos amostrados de cada célula. Não certificam o ínfimo/supremo da função dentro da célula.
+- **Verificações matemáticas:**
+  - Para `x²+y²` em `[0,1]²`, ponto médio tem erro exato `1/(6n²)`; ao duplicar `n`, o erro cai por fator `4`, correspondente a ordem `2`.
+  - Para a regra esquerda na mesma função, o erro é `(3n−1)/(3n²)`; em `n=128` e `2n=256`, a razão dos erros é aproximadamente `1,997`, compatível com ordem `1`.
+  - Para `xy` em `[0,1]²` com duas subdivisões em cada eixo: esquerda/inferior dão `1/16`, ponto médio `1/4`, direita/superior `9/16`; o valor exato é `1/4`. Um gerador aleatório constante `0,5` reproduz a amostragem pelos pontos médios.
+- **Verificações executadas:**
+  - Teste direcionado: 13 casos passaram.
+  - `pnpm exec vitest run`: 113 testes passaram em 11 arquivos (0 falhas).
+  - `pnpm exec eslint .`: passou.
+  - TypeScript da aplicação (`--ignoreDeprecations 5.0`) e configuração Node: passaram.
+  - Prettier e `git diff --check`: passaram.
+  - `pnpm exec vite build`: passou; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB; permanece o aviso do Vite para chunks acima de 500 kB.
+  - `pnpm build`: bloqueado pelo valor local preexistente `ignoreDeprecations: "6.0"` em `tsconfig.app.json`; arquivo preservado e fora do commit.
+- **Roteiro para testes manuais na interface quando os controles de Riemann estiverem integrados:**
+  1. `x*y`, limites x=`[0,1]`, y=`[0,1]`, duas subdivisões: conferir as somas por regra acima e a referência exata `1/4`.
+  2. `x^2+y^2`, `[0,1]²`: referência `2/3`; ponto médio deve passar de `0,6640625` em `n=8` a `0,666015625` em `n=16`, aproximando-se com erro de ordem 2.
+  3. `sin(x)*sin(y)`, `[0,pi]²` em radianos: referência `4`; refinar a malha e observar convergência.
+  4. `1`, x=`[2,4]`, y=`[-3,1]`: referência `8`; inverter só os limites de x deve produzir `−8`.
+  5. `x-y`, `[0,1]²`: referência `0`; a simetria pode revelar erro absoluto e a política para erro relativo quando o resultado é zero.
+- **Limitações:** os cálculos deste passo são núcleo puro, ainda não aparecem na interface nem renderizam prismas. A4 (disco) continua fora da região retangular e depende das tarefas de regiões/polares.
+- **Próximo passo:** F2-T4 — prismas instanciados, controles de subdivisões e painel com soma, valor de alta precisão, erros absoluto/relativo e tempo de cálculo, conforme o plano.

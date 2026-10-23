@@ -16,6 +16,12 @@ import type {
   SurfaceCalculationResult,
   SurfaceWorkerApi,
 } from '../workers/surfaceCalculation'
+import {
+  getAnimatedParameterValue,
+  PARAMETER_SLIDER_MAX,
+  PARAMETER_SLIDER_MIN,
+  PARAMETER_SLIDER_STEP,
+} from './parameterAnimation'
 import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 
@@ -90,6 +96,11 @@ const criticalKindBadge: Record<string, { label: string; badgeClass: string }> =
 export default function App() {
   const [activeFunction, setActiveFunction] = useState<VisualizableFunction>(fn)
   const [parameterValues, setParameterValues] = useState<Record<string, number>>({})
+  const [parameterAnimation, setParameterAnimation] = useState<{
+    name: string
+    startValue: number
+  } | null>(null)
+  const [animationSpeed, setAnimationSpeed] = useState(1)
   const [formulaDraft, setFormulaDraft] = useState(DEFAULT_EXPRESSION)
   const [domainDraft, setDomainDraft] = useState(DEFAULT_DOMAIN_DRAFT)
   const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
@@ -109,6 +120,8 @@ export default function App() {
   >(null)
   const [hoveredPoint, setHoveredPoint] = useState<PointInfo | null>(null)
   const formulaInputRef = useRef<HTMLInputElement>(null)
+  const parameterValuesRef = useRef(parameterValues)
+  const activeFunctionRef = useRef(activeFunction)
   const workerRef = useRef<Comlink.Remote<SurfaceWorkerApi> | null>(null)
   const activeJobIdRef = useRef(0)
   const nextJobIdRef = useRef(0)
@@ -184,6 +197,10 @@ export default function App() {
               )
               setActiveFunction(pending.restoreExample ? fn : nextFunction)
               setParameterValues(pending.restoreExample ? {} : pending.parameters)
+              parameterValuesRef.current = pending.restoreExample
+                ? {}
+                : pending.parameters
+              activeFunctionRef.current = pending.restoreExample ? fn : nextFunction
               setFormulaDraft(nextFunction.formulaPlain.replace(/^z =\s*/, ''))
               setAppliedExpression(
                 pending.restoreExample ? null : pending.expression.trim(),
@@ -198,6 +215,7 @@ export default function App() {
             if (jobId !== activeJobIdRef.current) return
             pendingRequestRef.current.delete(jobId)
             setCalculating(false)
+            setParameterAnimation(null)
             setFormulaError(
               error instanceof Error
                 ? error.message
@@ -245,6 +263,41 @@ export default function App() {
     )
   }, [workerReady, calculatedGrid, requestSurfaceCalculation])
 
+  useEffect(() => {
+    if (!parameterAnimation || !appliedExpression) return
+
+    const startedAt = performance.now()
+    let lastSubmittedAt = Number.NEGATIVE_INFINITY
+    let animationFrame = 0
+    const tick = (now: number) => {
+      if (now - lastSubmittedAt >= 120) {
+        const value = getAnimatedParameterValue(
+          parameterAnimation.startValue,
+          now - startedAt,
+          animationSpeed,
+        )
+        const nextValues = {
+          ...parameterValuesRef.current,
+          [parameterAnimation.name]: value,
+        }
+        parameterValuesRef.current = nextValues
+        setParameterValues(nextValues)
+        requestSurfaceCalculation(
+          appliedExpression,
+          nextValues,
+          activeFunctionRef.current.domain,
+          true,
+          0,
+        )
+        lastSubmittedAt = now
+      }
+      animationFrame = requestAnimationFrame(tick)
+    }
+
+    animationFrame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [parameterAnimation, animationSpeed, appliedExpression, requestSurfaceCalculation])
+
   const handlePointHover = useCallback((info: PointInfo | null) => {
     setHoveredPoint(info)
   }, [])
@@ -255,6 +308,7 @@ export default function App() {
 
   const handleApplyFormula = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    setParameterAnimation(null)
     try {
       const domain = {
         x: {
@@ -281,6 +335,7 @@ export default function App() {
   }
 
   const handleRestoreExample = () => {
+    setParameterAnimation(null)
     setFormulaDraft(DEFAULT_EXPRESSION)
     setDomainDraft(DEFAULT_DOMAIN_DRAFT)
     setFormulaError(null)
@@ -302,7 +357,9 @@ export default function App() {
   }
 
   const handleParameterChange = (name: string, value: number) => {
-    const nextValues = { ...parameterValues, [name]: value }
+    if (parameterAnimation?.name === name) setParameterAnimation(null)
+    const nextValues = { ...parameterValuesRef.current, [name]: value }
+    parameterValuesRef.current = nextValues
     setParameterValues(nextValues)
     if (appliedExpression) {
       requestSurfaceCalculation(
@@ -430,9 +487,11 @@ export default function App() {
               <p className="formula-help" role="status" aria-live="polite">
                 {!workerReady
                   ? 'Iniciando calculador em segundo plano…'
-                  : calculating
-                    ? 'Calculando a superfície em segundo plano…'
-                    : 'Cálculos da malha executados em Web Worker.'}
+                  : parameterAnimation
+                    ? 'Animação ativa; malha atualizada em segundo plano.'
+                    : calculating
+                      ? 'Calculando a superfície em segundo plano…'
+                      : 'Cálculos da malha executados em Web Worker.'}
               </p>
               <div
                 className="scientific-calculator"
@@ -537,30 +596,84 @@ export default function App() {
             </MathBlock>
             {Object.keys(parameterValues).length > 0 && (
               <div className="parameter-controls" aria-label="Parâmetros da função">
-                {Object.entries(parameterValues).map(([name, value]) => (
-                  <label
-                    className="parameter-control"
-                    key={name}
-                    htmlFor={`parameter-${name}`}
-                  >
-                    <span>
-                      Parâmetro <MVar>{name}</MVar>
+                <div className="parameter-controls-heading">
+                  <span>PARÂMETROS LIVRES</span>
+                  {parameterAnimation && (
+                    <span className="parameter-animation-status" role="status">
+                      Animando {parameterAnimation.name}
                     </span>
-                    <input
-                      id={`parameter-${name}`}
-                      type="range"
-                      min="-3"
-                      max="3"
-                      step="0.05"
-                      value={value}
-                      onChange={(event) =>
-                        handleParameterChange(name, Number(event.currentTarget.value))
-                      }
-                      aria-label={`Valor do parâmetro ${name}`}
-                    />
-                    <output htmlFor={`parameter-${name}`}>{value.toFixed(2)}</output>
-                  </label>
-                ))}
+                  )}
+                </div>
+                {Object.entries(parameterValues).map(([name, value]) => {
+                  const isAnimating = parameterAnimation?.name === name
+                  return (
+                    <div className="parameter-control" key={name}>
+                      <label htmlFor={`parameter-${name}`}>
+                        Parâmetro <MVar>{name}</MVar>
+                      </label>
+                      <input
+                        id={`parameter-${name}`}
+                        type="range"
+                        min={PARAMETER_SLIDER_MIN}
+                        max={PARAMETER_SLIDER_MAX}
+                        step={PARAMETER_SLIDER_STEP}
+                        value={value}
+                        onChange={(event) =>
+                          handleParameterChange(name, Number(event.currentTarget.value))
+                        }
+                        aria-label={`Valor do parâmetro ${name}`}
+                        aria-valuetext={`${value.toFixed(2)}; intervalo de ${PARAMETER_SLIDER_MIN} a ${PARAMETER_SLIDER_MAX}`}
+                      />
+                      <output htmlFor={`parameter-${name}`}>{value.toFixed(2)}</output>
+                      <button
+                        className="parameter-animation-button"
+                        type="button"
+                        aria-pressed={isAnimating}
+                        onClick={() =>
+                          setParameterAnimation(
+                            isAnimating
+                              ? null
+                              : {
+                                  name,
+                                  startValue: parameterValuesRef.current[name] ?? value,
+                                },
+                          )
+                        }
+                      >
+                        {isAnimating ? 'Pausar' : 'Animar'}
+                      </button>
+                    </div>
+                  )
+                })}
+                <label className="parameter-animation-speed" htmlFor="animation-speed">
+                  <span>Velocidade</span>
+                  <input
+                    id="animation-speed"
+                    type="range"
+                    min="0.25"
+                    max="2"
+                    step="0.25"
+                    value={animationSpeed}
+                    onChange={(event) => {
+                      const nextSpeed = Number(event.currentTarget.value)
+                      setAnimationSpeed(nextSpeed)
+                      setParameterAnimation((current) =>
+                        current
+                          ? {
+                              name: current.name,
+                              startValue:
+                                parameterValuesRef.current[current.name] ??
+                                current.startValue,
+                            }
+                          : null,
+                      )
+                    }}
+                    aria-label="Velocidade da animação do parâmetro"
+                  />
+                  <output htmlFor="animation-speed">
+                    {animationSpeed.toFixed(2)}×
+                  </output>
+                </label>
               </div>
             )}
             <div className="formula-subinfo">

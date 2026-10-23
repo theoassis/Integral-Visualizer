@@ -17,6 +17,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   OctahedronGeometry,
+  Object3D,
   PerspectiveCamera,
   Raycaster,
   Scene,
@@ -165,6 +166,8 @@ export default function HelloSurface({
   const gradientVisibleRef = useRef(showGradient)
   const gridVisibleRef = useRef(showGrid)
   const axesVisibleRef = useRef(showAxes)
+  const sceneRef = useRef<Scene | null>(null)
+  const cameraRef = useRef<PerspectiveCamera | null>(null)
   const criticalPointsRef = useRef<Group | null>(null)
   const gradientRef = useRef<Group | null>(null)
   const gridRef = useRef<LineSegments | null>(null)
@@ -174,10 +177,19 @@ export default function HelloSurface({
   const onPointHoverRef = useRef(onPointHover)
   const onSurfaceDiagnosticsRef = useRef(onSurfaceDiagnostics)
   const funcRef = useRef(func)
+  const calculatedGridRef = useRef(calculatedGrid)
+  const lastAppliedFunctionRef = useRef<VisualizableFunction | null>(null)
+  const lastAppliedGridRef = useRef<SurfaceGrid | null>(null)
+  const sceneRangeRef = useRef<VisualizableFunction['range'] | null>(null)
+  const hasCalculatedGrid = calculatedGrid !== null
 
   useEffect(() => {
     funcRef.current = func
   }, [func])
+
+  useEffect(() => {
+    calculatedGridRef.current = calculatedGrid
+  }, [calculatedGrid])
 
   useEffect(() => {
     onPointHoverRef.current = onPointHover
@@ -312,7 +324,9 @@ export default function HelloSurface({
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container || !calculatedGrid) return
+    const initialFunction = funcRef.current
+    const initialGrid = calculatedGridRef.current
+    if (!container || !hasCalculatedGrid || !initialGrid) return
 
     let renderer: WebGLRenderer
     try {
@@ -332,23 +346,25 @@ export default function HelloSurface({
     }
 
     const scene = new Scene()
+    sceneRef.current = scene
     scene.background = new Color(BG_COLOR)
 
     const domainSpan = Math.max(
-      func.domain.x.max - func.domain.x.min,
-      func.domain.y.max - func.domain.y.min,
+      initialFunction.domain.x.max - initialFunction.domain.x.min,
+      initialFunction.domain.y.max - initialFunction.domain.y.min,
     )
-    const rangeSpan = func.range.max - func.range.min
+    const rangeSpan = initialFunction.range.max - initialFunction.range.min
     const sceneScale = Math.max(domainSpan, rangeSpan, 1)
     const cameraDistance = sceneScale * 2.55
     const camera = new PerspectiveCamera(38, 1, 0.1, sceneScale * 20)
+    cameraRef.current = camera
     camera.up.set(0, 0, 1)
     camera.position.set(
       cameraDistance * 0.55,
       -cameraDistance * 0.66,
       cameraDistance * 0.5,
     )
-    const targetZ = (func.range.min + func.range.max) / 2
+    const targetZ = (initialFunction.range.min + initialFunction.range.max) / 2
     camera.lookAt(0, 0, targetZ)
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -356,7 +372,7 @@ export default function HelloSurface({
     renderer.domElement.className = 'scene-webgl'
     renderer.domElement.setAttribute('tabindex', '0')
     renderer.domElement.setAttribute('role', 'img')
-    renderer.domElement.setAttribute('aria-label', func.formulaPlain)
+    renderer.domElement.setAttribute('aria-label', initialFunction.formulaPlain)
     container.replaceChildren(renderer.domElement)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -389,28 +405,31 @@ export default function HelloSurface({
       mesh: surfaceMesh,
       material: surfaceMaterial,
       diagnostics,
-    } = createSurfaceMesh(func, calculatedGrid)
+    } = createSurfaceMesh(initialFunction, initialGrid, true)
     onSurfaceDiagnosticsRef.current?.(diagnostics)
     surfaceMeshRef.current = surfaceMesh
     surfaceMaterialRef.current = surfaceMaterial
+    lastAppliedFunctionRef.current = initialFunction
+    lastAppliedGridRef.current = initialGrid
+    sceneRangeRef.current = initialFunction.range
     scene.add(surfaceMesh)
 
-    const criticalPoints = createRefinedCriticalPoints(func.criticalPoints)
+    const criticalPoints = createRefinedCriticalPoints(initialFunction.criticalPoints)
     criticalPoints.visible = criticalPointsVisibleRef.current
     criticalPointsRef.current = criticalPoints
     scene.add(criticalPoints)
 
-    const gradient = createRefinedGradientField(func)
+    const gradient = createRefinedGradientField(initialFunction)
     gradient.visible = gradientVisibleRef.current
     gradientRef.current = gradient
     scene.add(gradient)
 
-    const grid = createFloorGrid(func.domain, func.range)
+    const grid = createFloorGrid(initialFunction.domain, initialFunction.range)
     grid.visible = gridVisibleRef.current
     gridRef.current = grid
     scene.add(grid)
 
-    const axesGroup = createRefinedAxesGroup(func)
+    const axesGroup = createRefinedAxesGroup(initialFunction)
     axesGroup.visible = axesVisibleRef.current
     axesRef.current = axesGroup
     scene.add(axesGroup)
@@ -425,7 +444,13 @@ export default function HelloSurface({
     resizeObserver.observe(container)
 
     const onMouseMove = (e: MouseEvent) => {
-      handleCanvasEvent(e, camera, renderer, surfaceMesh, criticalPoints)
+      handleCanvasEvent(
+        e,
+        camera,
+        renderer,
+        surfaceMeshRef.current ?? surfaceMesh,
+        criticalPointsRef.current ?? criticalPoints,
+      )
     }
     const onMouseLeave = () => {
       if (onPointHoverRef.current) onPointHoverRef.current(null)
@@ -472,6 +497,11 @@ export default function HelloSurface({
       axesRef.current = null
       surfaceMeshRef.current = null
       surfaceMaterialRef.current = null
+      sceneRef.current = null
+      cameraRef.current = null
+      lastAppliedFunctionRef.current = null
+      lastAppliedGridRef.current = null
+      sceneRangeRef.current = null
       scene.traverse((object) => {
         if (
           object instanceof Mesh ||
@@ -492,7 +522,125 @@ export default function HelloSurface({
       renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [func, calculatedGrid, handleCanvasEvent])
+  }, [hasCalculatedGrid, handleCanvasEvent])
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !calculatedGrid) return
+    if (lastAppliedGridRef.current === calculatedGrid) return
+
+    const nextSurface = createSurfaceMesh(func, calculatedGrid, false)
+    const previousSurface = surfaceMeshRef.current
+    if (previousSurface) {
+      scene.remove(previousSurface)
+      disposeObject(previousSurface)
+    }
+    surfaceMeshRef.current = nextSurface.mesh
+    surfaceMaterialRef.current = nextSurface.material
+    const highlight = nextSurface.material.uniforms['uHighlight']
+    if (highlight) highlight.value = highlightedElement === 'surface' ? 0.35 : 0
+    scene.add(nextSurface.mesh)
+
+    const replaceObject = <T extends Group | LineSegments>(
+      current: T | null,
+      next: T,
+      assign: (value: T) => void,
+    ) => {
+      if (current) {
+        scene.remove(current)
+        disposeObject(current)
+      }
+      assign(next)
+      scene.add(next)
+    }
+
+    containerRef.current
+      ?.querySelector('canvas')
+      ?.setAttribute('aria-label', func.formulaPlain)
+    onSurfaceDiagnosticsRef.current?.(nextSurface.diagnostics)
+
+    const previousFunction = lastAppliedFunctionRef.current
+    const domainChanged =
+      !previousFunction ||
+      previousFunction.domain.x.min !== func.domain.x.min ||
+      previousFunction.domain.x.max !== func.domain.x.max ||
+      previousFunction.domain.y.min !== func.domain.y.min ||
+      previousFunction.domain.y.max !== func.domain.y.max
+    const functionChanged = !previousFunction || previousFunction.id !== func.id
+    const cachedRange = sceneRangeRef.current
+    const rangeMargin = cachedRange
+      ? Math.max((cachedRange.max - cachedRange.min) * 0.08, 0.1)
+      : 0
+    const rangeExpanded =
+      !cachedRange ||
+      func.range.min < cachedRange.min - rangeMargin ||
+      func.range.max > cachedRange.max + rangeMargin
+
+    if (functionChanged || domainChanged || rangeExpanded) {
+      const criticalPoints = createRefinedCriticalPoints(func.criticalPoints)
+      criticalPoints.visible = criticalPointsVisibleRef.current
+      replaceObject(criticalPointsRef.current, criticalPoints, (value) => {
+        criticalPointsRef.current = value
+      })
+
+      const gradient = createRefinedGradientField(func)
+      gradient.visible = gradientVisibleRef.current
+      replaceObject(gradientRef.current, gradient, (value) => {
+        gradientRef.current = value
+      })
+
+      const floorGrid = createFloorGrid(func.domain, func.range)
+      floorGrid.visible = gridVisibleRef.current
+      replaceObject(gridRef.current, floorGrid, (value) => {
+        gridRef.current = value
+      })
+
+      const axes = createRefinedAxesGroup(func)
+      axes.visible = axesVisibleRef.current
+      replaceObject(axesRef.current, axes, (value) => {
+        axesRef.current = value
+      })
+
+      sceneRangeRef.current =
+        functionChanged || domainChanged
+          ? func.range
+          : {
+              min: Math.min(cachedRange?.min ?? func.range.min, func.range.min),
+              max: Math.max(cachedRange?.max ?? func.range.max, func.range.max),
+            }
+    }
+
+    if (cameraRef.current && controlsRef.current) {
+      const camera = cameraRef.current
+      const controls = controlsRef.current
+      const domainSpan = Math.max(
+        func.domain.x.max - func.domain.x.min,
+        func.domain.y.max - func.domain.y.min,
+      )
+      const sceneScale = Math.max(domainSpan, func.range.max - func.range.min, 1)
+      if (functionChanged || domainChanged) {
+        const direction = camera.position.clone().sub(controls.target)
+        if (direction.lengthSq() === 0) direction.set(1, -1, 1)
+        direction.normalize()
+        const targetZ = (func.range.min + func.range.max) / 2
+        controls.target.set(0, 0, targetZ)
+        camera.position
+          .copy(controls.target)
+          .addScaledVector(direction, sceneScale * 2.55)
+        camera.near = 0.1
+        controls.minDistance = sceneScale * 0.72
+        controls.maxDistance = sceneScale * 4.5
+        controls.update()
+      }
+      if (rangeExpanded) {
+        camera.far = Math.max(camera.far, sceneScale * 20)
+        camera.updateProjectionMatrix()
+      }
+    }
+
+    lastAppliedFunctionRef.current = func
+    lastAppliedGridRef.current = calculatedGrid
+  }, [func, calculatedGrid, highlightedElement])
 
   return <div className="scene-canvas" ref={containerRef} />
 }
@@ -501,9 +649,30 @@ export default function HelloSurface({
 /*  Surface Generation (Decoupled from specific formula)               */
 /* ------------------------------------------------------------------ */
 
+function disposeObject(object: Object3D): void {
+  object.traverse((child) => {
+    if (
+      child instanceof Mesh ||
+      child instanceof Line ||
+      child instanceof LineSegments ||
+      child instanceof Sprite
+    ) {
+      child.geometry.dispose()
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material]
+      for (const material of materials) {
+        if (material instanceof SpriteMaterial) material.map?.dispose()
+        material.dispose()
+      }
+    }
+  })
+}
+
 function createSurfaceMesh(
   func: VisualizableFunction,
   grid: SurfaceGrid,
+  animateIn = false,
 ): {
   mesh: Mesh<BufferGeometry, ShaderMaterial>
   material: ShaderMaterial
@@ -561,7 +730,7 @@ function createSurfaceMesh(
     vertexShader: SURFACE_VERTEX_SHADER,
     fragmentShader: SURFACE_FRAGMENT_SHADER,
     uniforms: {
-      uProgress: { value: REDUCED_MOTION ? 1.0 : 0.0 },
+      uProgress: { value: REDUCED_MOTION || !animateIn ? 1.0 : 0.0 },
       uTime: { value: 0.0 },
       uHighlight: { value: 0.0 },
     },

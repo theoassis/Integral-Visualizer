@@ -6,11 +6,11 @@
 ## Resumo atual
 
 - **Fase atual:** 1 — Fundação e superfícies
-- **Tarefa atual:** F1-T5 — completar controles de parâmetros e animação
-- **Última sessão:** 2026-10-22
-- **Estado dos testes:** `pnpm test` — 65 testes passando (5 arquivos, 0 falhas)
-- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.502,55 kB excede 500 kB; Worker emitido separadamente (675,69 kB)
-- **Último commit:** `feat: move surface calculations to worker`
+- **Tarefa atual:** F1-T6 — mapas de cores, normais analíticas e picking
+- **Última sessão:** 2026-10-23
+- **Estado dos testes:** `pnpm test` — 70 testes passando (6 arquivos, 0 falhas)
+- **Estado do build/tipos:** lint, tipos, formatação e build passaram; Vite avisa que o chunk inicial de 1.506,91 kB excede 500 kB; Worker emitido separadamente (675,71 kB)
+- **Último commit:** `feat: animate free parameters`
 
 ## Painel de fases
 
@@ -40,7 +40,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T2 | Parser seguro de expressões                                | ✅     | Commit `3b63752`; lista branca, aliases, rejeição de nós perigosos e testes. A sessão atual corrige a notação escolar concatenada `senxtany`.         |
 | F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha. |
 | F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                     |
-| F1-T5 | Parâmetros livres e sliders                                | 🟨     | Slider básico de parâmetro entregue em F1-T3; controles de animação e refinamentos ainda pendentes.                                                   |
+| F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.          |
 | F1-T6 | Mapas de cores, normais analíticas e picking               | ⬜     | Pendente.                                                                                                                                             |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
@@ -114,7 +114,7 @@ Marque conforme forem implementados **e passando**.
 
 ## Problemas conhecidos / dívida técnica
 
-- O build mais recente gera um chunk inicial de 1.497,40 kB minificado (Three.js e math.js); o Vite avisa acima de 500 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
+- O build mais recente gera um chunk inicial de 1.506,91 kB minificado (Three.js e math.js); o Vite avisa acima de 500 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
 
 ## Ideias para o backlog (não implementar agora)
 
@@ -282,3 +282,21 @@ Marque conforme forem implementados **e passando**.
   - Prévia local: exemplo inicial renderizou após a inicialização do Worker; `x²+y²` foi aplicado e o painel confirmou a avaliação no centro, faixa estimada e superfície; `danger(1)` exibiu erro e preservou a superfície anterior.
 - **Não verificado:** carga em GPU/dispositivo móvel; medição comparativa de responsividade em hardware lento. A faixa permanece uma estimativa por amostragem, conforme a revisão matemática anterior.
 - **Próximo passo:** F1-T5 — completar controles de parâmetros e animação; F1-T6 permanece pendente antes do portão matemático da Fase 1.
+
+### Sessão 10
+
+- **Data:** 2026-10-23
+- **Tarefa:** F1-T5 — completar parâmetros livres e animação controlada.
+- **Feito:**
+  1. Cada parâmetro livre descoberto na expressão agora recebe seu próprio slider e controles de animar/pausar; alterar manualmente um parâmetro interrompe sua animação.
+  2. A animação percorre suavemente o intervalo do slider com período de 8 segundos em 1×; a velocidade pode ser ajustada de 0,25× a 2×. Os valores animados permanecem alinhados ao passo do slider (0,05).
+  3. O cálculo continua no Web Worker, e a malha é atualizada sem recriar o renderer, controles de câmera ou enquadramento em cada quadro. O enquadramento é revisado quando a função ou o domínio mudam.
+  4. Erros do Worker interrompem a animação e preservam a última malha válida.
+- **Verificações executadas:**
+  - TypeScript: passou.
+  - Vitest: 70 testes passaram em 6 arquivos (0 falhas), incluindo 5 testes da animação.
+  - ESLint e Prettier: passaram.
+  - Build Vite: passou; aviso de chunk inicial minificado de 1.506,91 kB e Worker de 675,71 kB.
+  - Prévia local: `sin(a*x)*cos(y)` animou `a`, a velocidade mudou para 1,25× e a pausa preservou o valor; console sem erros.
+- **Não verificado:** desempenho em dispositivo móvel/GPU restrita; chunk principal continua acima do limite de aviso do Vite.
+- **Próximo passo:** F1-T6 — mapas de cores, normais analíticas e picking; manter a revisão matemática da Fase 1 pendente até a conclusão dessa tarefa.

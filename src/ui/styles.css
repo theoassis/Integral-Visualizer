@@ -659,7 +659,7 @@ button {
 
 .parameter-controls {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
   margin: 0.7rem 0 0.55rem;
   padding: 0.65rem 0.7rem;
   border: 1px solid var(--border-subtle);
@@ -667,21 +667,78 @@ button {
   background: #14191e;
 }
 
+.parameter-controls-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+
+.parameter-animation-status {
+  color: var(--accent-blue-light);
+  letter-spacing: 0;
+}
+
 .parameter-control {
   display: grid;
-  grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) 2.8rem;
+  grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) 2.8rem auto;
   align-items: center;
   gap: 0.65rem;
   color: var(--text-secondary);
   font-size: 0.72rem;
 }
 
-.parameter-control input {
+.parameter-control input,
+.parameter-animation-speed input {
   width: 100%;
   accent-color: var(--accent-blue-light);
 }
 
 .parameter-control output {
+  color: var(--text-math);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.parameter-animation-button {
+  min-width: 4rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #1b232a;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.parameter-animation-button:hover,
+.parameter-animation-button[aria-pressed='true'] {
+  border-color: var(--accent-blue-light);
+  background: #202c35;
+  color: var(--text-math);
+}
+
+.parameter-animation-speed {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(5rem, 1fr) 2.8rem;
+  align-items: center;
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.parameter-animation-speed output {
   color: var(--text-math);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

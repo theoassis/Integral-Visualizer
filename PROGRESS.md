@@ -5,27 +5,27 @@
 
 ## Resumo atual
 
-- **Fase atual:** 1 — Fundação e superfícies
-- **Tarefa atual:** portão de revisão matemática da Fase 1
-- **Última sessão:** 2026-10-23 — refinamento do teclado da calculadora científica.
-- **Estado dos testes:** `pnpm test` — 81 testes passando (8 arquivos, 0 falhas)
-- **Estado do build/tipos:** tipos, lint, formatação e build passaram; chunk inicial de 1.513,07 kB (413,16 kB gzip) e Worker separado de 676,73 kB
-- **Último commit:** esta sessão — `feat: refine scientific calculator keyboard`
+- **Fase atual:** 2 — Integral dupla retangular
+- **Tarefa atual:** F2-T1 concluída; próxima F2-T2 — integral iterada em retângulos
+- **Última sessão:** 2026-10-23 — início do núcleo de quadratura da Fase 2.
+- **Estado dos testes:** `pnpm test` — 92 testes passando (9 arquivos, 0 falhas)
+- **Estado do build/tipos:** TypeScript da aplicação passou com `ignoreDeprecations` sobrescrito para `5.0`; lint, formatação e `vite build` passaram. `pnpm build` está bloqueado por `ignoreDeprecations: "6.0"` na alteração local de `tsconfig.app.json`; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB.
+- **Último commit:** esta sessão — `feat: implement Gauss-Legendre quadrature`
 
 ## Painel de fases
 
-| Fase | Nome                              | Status          | Portão de revisão matemática                   |
-| ---- | --------------------------------- | --------------- | ---------------------------------------------- |
-| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1 |
-| 1    | Fundação e superfícies            | 🟨 em andamento | ⬜                                             |
-| 2    | Integral dupla retangular         | ⬜              | ⬜                                             |
-| 3    | Regiões gerais e polar (**MVP**)  | ⬜              | ⬜                                             |
-| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                             |
-| 5    | Integral tripla                   | ⬜              | ⬜                                             |
-| 6    | Equações diferenciais             | ⬜              | ⬜                                             |
-| 7    | Plataforma e polimento            | ⬜              | ⬜                                             |
-| 8    | Desempenho e WASM                 | ⬜              | ⬜                                             |
-| 9    | Extras                            | ⬜              | —                                              |
+| Fase | Nome                              | Status          | Portão de revisão matemática                          |
+| ---- | --------------------------------- | --------------- | ----------------------------------------------------- |
+| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1        |
+| 1    | Fundação e superfícies            | ✅ concluída    | ✅ aprovada explicitamente pelo usuário em 2026-10-23 |
+| 2    | Integral dupla retangular         | 🟨 em andamento | ⬜                                                    |
+| 3    | Regiões gerais e polar (**MVP**)  | ⬜              | ⬜                                                    |
+| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                                    |
+| 5    | Integral tripla                   | ⬜              | ⬜                                                    |
+| 6    | Equações diferenciais             | ⬜              | ⬜                                                    |
+| 7    | Plataforma e polimento            | ⬜              | ⬜                                                    |
+| 8    | Desempenho e WASM                 | ⬜              | ⬜                                                    |
+| 9    | Extras                            | ⬜              | —                                                     |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprovada na revisão
 
@@ -42,6 +42,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                     |
 | F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.          |
 | F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                       |
+| F2-T1 | Nós e pesos de Gauss–Legendre                              | ✅     | Regras simétricas crescentes em [−1,1], testes de momentos até grau 2n−1, ordem alta 256 e validação de entrada.                                      |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -85,9 +86,11 @@ Marque conforme forem implementados **e passando**.
 ## Ambiguidades e riscos encontrados na leitura inicial
 
 - **Segurança do parser:** a divergência entre as seções 9 e 17 do plano foi resolvida no ADR-001 em favor de interpretar uma AST com lista branca, sem `eval`/`new Function`; F1-T2 cobre a validação de nós e propriedades herdadas.
-- **Escopo da Fase 2:** a tarefa F2-T2 pede A1–A3 e descreve integral retangular; a tabela de roadmap inclui A1–A4, mas A4 é integral polar e aparece de novo na Fase 3. Confirmar a fase de A4 ao detalhar tarefas.
+- **Escopo da Fase 2:** o critério de aceite do roadmap inclui A1–A4, embora A4 use coordenadas polares e a interface de regiões polares esteja na Fase 3. O núcleo numérico poderá usar limites radiais simples para A4; regiões gerais/editor ficam na Fase 3.
 - **Rótulos “inferior/superior”:** mantê-los como estimativas amostradas sem garantia até que intervalos certificados sejam implementados; atualizar o critério em `PROMPTS_FASES.md` e `REVISAO_MATEMATICA.md`.
 - **Compatibilidade de ferramentas:** TypeScript 7.0.2 não atendia ao peer range do `typescript-eslint` 8.71.2. A base usa TypeScript 5.9.3, dentro do peer range publicado.
+- **Arquivos do roteiro:** `CLAUDE.md` e `REVISAO_MATEMATICA.md` citam `docs/PROMPTS_FASES.md`, mas esse arquivo não existe no checkout atual; o plano oficial em PDF foi usado para definir F2-T1.
+- **Alteração local preservada:** `tsconfig.app.json` já estava modificado antes desta sessão (`ignoreDeprecations: "6.0"`); foi mantido fora desta tarefa.
 
 ## Decisões tomadas (ADR resumido)
 
@@ -342,3 +345,26 @@ Marque conforme forem implementados **e passando**.
   - `pnpm build` (`tsc -b && vite build`): passou; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB; Vite ainda avisa sobre chunks acima de 500 kB.
   - Prévia local: inserção por teclado de `sqrt()` e `sin()` com argumentos no cursor; `sqrt(x^2sin(y))` foi aceita e gerou a superfície. A região em que o radicando é negativo permaneceu como buracos, conforme o domínio real da raiz quadrada.
 - **Próximo passo:** portão de revisão matemática da Fase 1. Não iniciar Fase 2 até aprovação explícita do revisor humano.
+
+### Sessão 13
+
+- **Data:** 2026-10-23
+- **Tarefa:** F2-T1 — implementar a regra de quadratura de Gauss–Legendre, a primeira peça do núcleo numérico de integrais duplas.
+- **Feito:**
+  1. O núcleo calcula nós e pesos da regra em `[-1,1]` por recorrência de Legendre e iteração de Newton, espelha as raízes para impor simetria e armazena regras por ordem em cache.
+  2. A API valida ordens inteiras de 1 a 256 e falha com erro explícito se a iteração não convergir. As funções permanecem puras de dependências de UI/render, retornam arrays de precisão dupla independentes do cache e não permitem que uma chamada corrompa outra.
+  3. A revisão matemática da Fase 1 foi aprovada explicitamente pelo usuário; a Fase 2 foi marcada como iniciada. F2-T1 não implementa a integral iterada nem marca A1–A4 como cobertos.
+- **Verificações matemáticas:**
+  - Ordem 1: nó `0`, peso `2`.
+  - Ordem 2: nós `±1/√3`, pesos `1,1`.
+  - Ordem 3: nós `−√(3/5), 0, √(3/5)` e pesos `5/9, 8/9, 5/9`.
+  - Para ordens de 1 a 8, testes verificam que `Σ wᵢ xᵢᵏ = ∫₋₁¹ xᵏ dx` para todos os graus `k ≤ 2n−1` (momento igual a `2/(k+1)` para k par e `0` para k ímpar).
+  - Na ordem 256, os nós seguem crescentes e simétricos, os pesos permanecem positivos e somam `2` dentro do arredondamento numérico.
+- **Verificações executadas:**
+  - Teste direcionado: 11 casos passaram.
+  - `pnpm exec vitest run`: 92 testes passaram em 9 arquivos (0 falhas).
+  - `pnpm exec eslint .` e Prettier: passaram.
+  - TypeScript da aplicação: `pnpm exec tsc -p tsconfig.app.json --ignoreDeprecations 5.0` passou, incluindo os testes tipados do código de expressão.
+  - `pnpm build` não completou porque o `tsc -b` rejeita a opção `ignoreDeprecations: "6.0"` do `tsconfig.app.json` local. O arquivo já estava modificado antes desta tarefa e foi preservado; o Vite isolado passou. O aviso de chunk >500 kB continua.
+- **Não verificado:** a regra ainda não está integrada a `integral2TypeI` nem à interface; não há resultado de A1–A4 nesta tarefa. O limite superior 256 é política de segurança/recursos, não uma exigência matemática do método.
+- **Próximo passo:** F2-T2 — implementar e testar a integral dupla iterada em retângulos usando Gauss–Legendre; cobrir os casos retangulares A1–A3 com valores exatos antes de expor o cálculo na UI.

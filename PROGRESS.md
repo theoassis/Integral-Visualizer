@@ -9,8 +9,8 @@
 - **Tarefa atual:** F2-T5 concluída; Fase 2 aguarda o portão de revisão matemática do usuário.
 - **Última sessão:** 2026-10-24 — convergência, sólido assinado, presets e cobertura do caso A4.
 - **Estado dos testes:** `pnpm exec vitest run` — 131 testes passando (15 arquivos, 0 falhas).
-- **Estado do build/tipos:** `pnpm tsc --noEmit`, TypeScript da aplicação com `--ignoreDeprecations 5.0`, TypeScript da configuração Node, lint e formatação passaram. `pnpm build` continua bloqueado por `TS5103` (`ignoreDeprecations: "6.0"` em `tsconfig.app.json`); `pnpm exec vite build` passou com aviso do chunk grande (1.531,98 kB; Worker 683,00 kB). A inspeção visual no navegador não foi possível porque o uso local de browser está desativado nas configurações de Work.
-- **Último commit:** `feat: add Riemann convergence and volume view` (F2-T5).
+- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, 131 testes, lint e formatação passaram após corrigir `ignoreDeprecations` em `tsconfig.app.json` para `5.0`, compatível com TypeScript 5.9.3. O bundle continua acima do aviso de 500 kB do Vite (1.531,98 kB; Worker 683,00 kB). A inspeção visual no navegador não foi possível porque o uso local de browser está desativado nas configurações de Work.
+- **Último commit:** `fix: align TypeScript deprecation setting`.
 
 ## Painel de fases
 
@@ -445,3 +445,11 @@ Marque conforme forem implementados **e passando**.
   - `pnpm exec vite build`: passou; bundle inicial 1.531,98 kB (418,77 kB gzip), Worker 683,00 kB; permanece o aviso do Vite para chunks acima de 500 kB.
 - **Não verificado:** inspeção manual de WebGL no navegador bloqueada porque o uso local de browser está desativado nas configurações de Work; CI remoto também não foi consultado. O sólido é uma aproximação geométrica na resolução da malha, não uma construção exata para função arbitrária.
 - **Próximo passo:** portão de revisão matemática da Fase 2. Não começar a Fase 3 sem aprovação explícita do revisor.
+
+### Sessão 17
+
+- **Data:** 2026-10-24
+- **Tarefa:** corrigir falha do GitHub Actions no passo `pnpm typecheck`.
+- **Feito:** `tsconfig.app.json` usava `ignoreDeprecations: "6.0"` apesar do TypeScript 5.9.3; alterado para `"5.0"`, restabelecendo compatibilidade sem alterar a lógica da aplicação.
+- **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm exec vitest run` (131 testes), `pnpm lint`, `pnpm format:check` e `git diff --check` passaram.
+- **Próximo passo:** commit e push da correção; a Fase 2 ainda aguarda aprovação matemática.

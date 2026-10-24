@@ -1,6 +1,11 @@
 import { createExpressionFunction } from '../core/functions/expressionFunction'
 import type { VisualizableFunction } from '../core/functions/types'
 import { createSurfaceGridAsync } from '../render/surfaceGrid'
+import {
+  calculateRiemannIntegral,
+  type RiemannCalculationRequest,
+  type RiemannCalculationResult,
+} from './riemannCalculation'
 
 export interface SurfaceCalculationRequest {
   jobId: number
@@ -53,6 +58,10 @@ export class SurfaceCalculationService {
   cancel(jobId: number): void {
     this.cancelledJobs.add(jobId)
   }
+
+  calculateRiemann(request: RiemannCalculationRequest): RiemannCalculationResult {
+    return calculateRiemannIntegral(request)
+  }
 }
 
 export interface SurfaceWorkerApi {
@@ -61,4 +70,5 @@ export interface SurfaceWorkerApi {
     request: SurfaceCalculationRequest,
   ): Promise<SurfaceCalculationResult | null>
   cancel(jobId: number): void
+  calculateRiemann(request: RiemannCalculationRequest): RiemannCalculationResult
 }

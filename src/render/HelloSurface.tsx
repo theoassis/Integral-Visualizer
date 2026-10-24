@@ -10,6 +10,7 @@ import {
   DirectionalLight,
   DoubleSide,
   Group,
+  InstancedMesh,
   Line,
   LineBasicMaterial,
   LineSegments,
@@ -32,8 +33,10 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { CriticalPointData, VisualizableFunction } from '../core/functions/types'
+import type { RiemannCellSample, RiemannGridData } from '../core/quad/riemann'
 import { estimateGridGradient, SURFACE_SEGMENTS, type SurfaceGrid } from './surfaceGrid'
 import { evaluateHeightColor, type SurfaceColorMap } from './colorMaps'
+import { buildRiemannColumns, type RiemannColumnsObject } from './riemannColumns'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -64,8 +67,12 @@ interface HelloSurfaceProps {
   showGrid: boolean
   showAxes: boolean
   colorMap: SurfaceColorMap
+  riemannGrid: RiemannGridData | null
+  showRiemannColumns: boolean
   highlightedElement?: 'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
   onPointSelect?: (info: PointInfo | null) => void
+  onRiemannCellHover?: (cell: RiemannCellSample | null) => void
+  onRiemannOmittedChange?: (count: number) => void
   onSurfaceDiagnostics?: (diagnostics: SurfaceDiagnostics) => void
 }
 
@@ -151,8 +158,12 @@ export default function HelloSurface({
   showGrid,
   showAxes,
   colorMap,
+  riemannGrid,
+  showRiemannColumns,
   highlightedElement,
   onPointSelect,
+  onRiemannCellHover,
+  onRiemannOmittedChange,
   onSurfaceDiagnostics,
 }: HelloSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -170,6 +181,16 @@ export default function HelloSurface({
   const axesRef = useRef<Group | null>(null)
   const surfaceMeshRef = useRef<Mesh | null>(null)
   const surfaceMaterialRef = useRef<ShaderMaterial | null>(null)
+  const riemannColumnsRef = useRef<RiemannColumnsObject | null>(null)
+  const riemannGridRef = useRef(riemannGrid)
+  const showRiemannColumnsRef = useRef(showRiemannColumns)
+  const onRiemannCellHoverRef = useRef(onRiemannCellHover)
+  const onRiemannOmittedChangeRef = useRef(onRiemannOmittedChange)
+  const hoveredRiemannCellRef = useRef<{
+    mesh: InstancedMesh
+    instanceId: number
+    color: Color
+  } | null>(null)
   const onPointSelectRef = useRef(onPointSelect)
   const onSurfaceDiagnosticsRef = useRef(onSurfaceDiagnostics)
   const funcRef = useRef(func)
@@ -180,6 +201,26 @@ export default function HelloSurface({
   const lastAppliedColorMapRef = useRef<SurfaceColorMap | null>(null)
   const sceneRangeRef = useRef<VisualizableFunction['range'] | null>(null)
   const hasCalculatedGrid = calculatedGrid !== null
+
+  useEffect(() => {
+    riemannGridRef.current = riemannGrid
+  }, [riemannGrid])
+
+  useEffect(() => {
+    showRiemannColumnsRef.current = showRiemannColumns
+    if (riemannColumnsRef.current) {
+      riemannColumnsRef.current.mesh.visible = showRiemannColumns
+    }
+    if (!showRiemannColumns) onRiemannCellHoverRef.current?.(null)
+  }, [showRiemannColumns])
+
+  useEffect(() => {
+    onRiemannCellHoverRef.current = onRiemannCellHover
+  }, [onRiemannCellHover])
+
+  useEffect(() => {
+    onRiemannOmittedChangeRef.current = onRiemannOmittedChange
+  }, [onRiemannOmittedChange])
 
   useEffect(() => {
     funcRef.current = func
@@ -462,6 +503,81 @@ export default function HelloSurface({
     }
     renderer.domElement.addEventListener('click', onCanvasClick)
 
+    const pointerRaycaster = new Raycaster()
+    const pointerCoordinates = new Vector2()
+    const clearRiemannHover = () => {
+      const previous = hoveredRiemannCellRef.current
+      if (previous) {
+        previous.mesh.setColorAt(previous.instanceId, previous.color)
+        if (previous.mesh.instanceColor) previous.mesh.instanceColor.needsUpdate = true
+        hoveredRiemannCellRef.current = null
+      }
+      renderer.domElement.style.cursor = 'grab'
+      onRiemannCellHoverRef.current?.(null)
+    }
+
+    const onPointerMove = (event: PointerEvent) => {
+      const columns = riemannColumnsRef.current
+      const data = riemannGridRef.current
+      if (
+        !showRiemannColumnsRef.current ||
+        !columns ||
+        !data ||
+        !columns.mesh.visible
+      ) {
+        clearRiemannHover()
+        return
+      }
+
+      const rect = renderer.domElement.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      pointerCoordinates.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      )
+      pointerRaycaster.setFromCamera(pointerCoordinates, camera)
+      const hit = pointerRaycaster.intersectObject(columns.mesh, false)[0]
+      const instanceId = hit?.instanceId
+      if (instanceId === undefined) {
+        clearRiemannHover()
+        return
+      }
+
+      renderer.domElement.style.cursor = 'pointer'
+      const previous = hoveredRiemannCellRef.current
+      if (previous?.mesh !== columns.mesh || previous.instanceId !== instanceId) {
+        if (previous) previous.mesh.setColorAt(previous.instanceId, previous.color)
+        const originalColor = new Color()
+        columns.mesh.getColorAt(instanceId, originalColor)
+        columns.mesh.setColorAt(instanceId, new Color('#fff0c2'))
+        if (columns.mesh.instanceColor) columns.mesh.instanceColor.needsUpdate = true
+        hoveredRiemannCellRef.current = {
+          mesh: columns.mesh,
+          instanceId,
+          color: originalColor,
+        }
+
+        const cellIndex = columns.cellIndices[instanceId]
+        if (cellIndex === undefined) return
+        const row = Math.floor(cellIndex / data.ySubdivisions)
+        const column = cellIndex % data.ySubdivisions
+        const value = data.values[cellIndex]!
+        onRiemannCellHoverRef.current?.({
+          row,
+          column,
+          x: data.sampleX[cellIndex]!,
+          y: data.sampleY[cellIndex]!,
+          value,
+          deltaArea: Math.abs(data.deltaX * data.deltaY),
+          contribution: value * data.deltaX * data.deltaY,
+        })
+      }
+    }
+
+    const onPointerLeave = () => clearRiemannHover()
+    renderer.domElement.addEventListener('pointermove', onPointerMove)
+    renderer.domElement.addEventListener('pointerleave', onPointerLeave)
+
     // Animation loop: smooth initial surface emergence
     const animationDuration = REDUCED_MOTION ? 0.001 : 2.0
     const startTime = performance.now()
@@ -491,6 +607,9 @@ export default function HelloSurface({
     return () => {
       renderer.setAnimationLoop(null)
       renderer.domElement.removeEventListener('click', onCanvasClick)
+      renderer.domElement.removeEventListener('pointermove', onPointerMove)
+      renderer.domElement.removeEventListener('pointerleave', onPointerLeave)
+      clearRiemannHover()
       resizeObserver.disconnect()
       controls.dispose()
       controlsRef.current = null
@@ -500,6 +619,7 @@ export default function HelloSurface({
       axesRef.current = null
       surfaceMeshRef.current = null
       surfaceMaterialRef.current = null
+      riemannColumnsRef.current = null
       sceneRef.current = null
       cameraRef.current = null
       lastAppliedFunctionRef.current = null
@@ -527,6 +647,27 @@ export default function HelloSurface({
       renderer.domElement.remove()
     }
   }, [hasCalculatedGrid, handleCanvasEvent])
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !riemannGrid) return
+
+    const columns = buildRiemannColumns(riemannGrid, colorMap)
+    columns.mesh.visible = showRiemannColumnsRef.current
+    riemannColumnsRef.current = columns
+    scene.add(columns.mesh)
+    onRiemannOmittedChangeRef.current?.(columns.omittedCount)
+
+    return () => {
+      scene.remove(columns.mesh)
+      disposeObject(columns.mesh)
+      if (riemannColumnsRef.current === columns) riemannColumnsRef.current = null
+      if (hoveredRiemannCellRef.current?.mesh === columns.mesh) {
+        hoveredRiemannCellRef.current = null
+        onRiemannCellHoverRef.current?.(null)
+      }
+    }
+  }, [riemannGrid, colorMap])
 
   useEffect(() => {
     const scene = sceneRef.current

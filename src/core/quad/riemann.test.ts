@@ -29,6 +29,40 @@ describe('riemann2Rectangular', () => {
     expect(value).toBeCloseTo(1 / 4, 14)
   })
 
+  it('expõe a amostra e a contribuição de cada célula para visualização', () => {
+    const cells: Array<{
+      row: number
+      column: number
+      x: number
+      y: number
+      value: number
+      deltaArea: number
+      contribution: number
+    }> = []
+    const value = riemann2Rectangular(
+      (x, y) => x * y,
+      [0, 1],
+      [0, 1],
+      { rule: 'midpoint', xSubdivisions: 2, ySubdivisions: 2 },
+      (cell) => cells.push(cell),
+    )
+
+    expect(cells).toHaveLength(4)
+    expect(cells[0]).toEqual({
+      row: 0,
+      column: 0,
+      x: 0.25,
+      y: 0.25,
+      value: 0.0625,
+      deltaArea: 0.25,
+      contribution: 0.015625,
+    })
+    expect(cells.reduce((sum, cell) => sum + cell.contribution, 0)).toBeCloseTo(
+      value,
+      14,
+    )
+  })
+
   it('preserva orientação e escala em retângulos deslocados', () => {
     const options = { rule: 'midpoint', xSubdivisions: 20, ySubdivisions: 20 } as const
     const forward = riemann2Rectangular(() => 1, [2, 4], [-3, 1], options)

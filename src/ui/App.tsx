@@ -12,11 +12,16 @@ import type { VisualizableFunction } from '../core/functions'
 import type { SurfaceGrid } from '../render/surfaceGrid'
 import { SURFACE_SEGMENTS } from '../render/surfaceGrid'
 import { SURFACE_COLOR_MAPS, type SurfaceColorMap } from '../render/colorMaps'
+import type { RiemannCellSample, RiemannRule } from '../core/quad/riemann'
 import type {
   SurfaceCalculationRequest,
   SurfaceCalculationResult,
   SurfaceWorkerApi,
 } from '../workers/surfaceCalculation'
+import type {
+  RiemannCalculationRequest,
+  RiemannCalculationResult,
+} from '../workers/riemannCalculation'
 import {
   getAnimatedParameterValue,
   PARAMETER_SLIDER_MAX,
@@ -26,6 +31,7 @@ import {
 import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 import { parseDomainBound } from './domainBound'
+import RiemannPanel from './RiemannPanel'
 
 const fn = sinCosFunction
 const DEFAULT_EXPRESSION = 'sin(x)*cos(y)'
@@ -151,6 +157,14 @@ export default function App() {
   const [calculatedGrid, setCalculatedGrid] = useState<SurfaceGrid | null>(null)
   const [surfaceDiagnostics, setSurfaceDiagnostics] =
     useState<SurfaceDiagnostics | null>(null)
+  const [riemannResult, setRiemannResult] = useState<RiemannCalculationResult | null>(
+    null,
+  )
+  const [riemannError, setRiemannError] = useState<string | null>(null)
+  const [riemannCalculating, setRiemannCalculating] = useState(false)
+  const [showRiemannColumns, setShowRiemannColumns] = useState(true)
+  const [riemannCell, setRiemannCell] = useState<RiemannCellSample | null>(null)
+  const [omittedRiemannPrisms, setOmittedRiemannPrisms] = useState(0)
   const [autoRotate, setAutoRotate] = useState(true)
   const [showCriticalPoints, setShowCriticalPoints] = useState(true)
   const [showGradient, setShowGradient] = useState(false)
@@ -167,6 +181,7 @@ export default function App() {
   const workerRef = useRef<Comlink.Remote<SurfaceWorkerApi> | null>(null)
   const activeJobIdRef = useRef(0)
   const nextJobIdRef = useRef(0)
+  const activeRiemannJobIdRef = useRef(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRequestRef = useRef<
     Map<
@@ -180,6 +195,15 @@ export default function App() {
       }
     >
   >(new Map())
+
+  const invalidateRiemannResult = () => {
+    activeRiemannJobIdRef.current += 1
+    setRiemannResult(null)
+    setRiemannError(null)
+    setRiemannCalculating(false)
+    setRiemannCell(null)
+    setOmittedRiemannPrisms(0)
+  }
 
   const requestSurfaceCalculation = useCallback(
     (
@@ -349,6 +373,61 @@ export default function App() {
     setSurfaceDiagnostics(diagnostics)
   }, [])
 
+  const handleRiemannCalculate = useCallback(
+    (rule: RiemannRule, xSubdivisions: number, ySubdivisions: number) => {
+      const worker = workerRef.current
+      if (!worker) {
+        setRiemannError('O calculador em segundo plano ainda está iniciando.')
+        return
+      }
+
+      const jobId = ++nextJobIdRef.current
+      activeRiemannJobIdRef.current = jobId
+      setRiemannCalculating(true)
+      setRiemannError(null)
+      setRiemannResult(null)
+      setRiemannCell(null)
+      setOmittedRiemannPrisms(0)
+
+      const request: RiemannCalculationRequest = {
+        jobId,
+        expression: appliedExpression ?? DEFAULT_EXPRESSION,
+        parameters: parameterValuesRef.current,
+        domain: activeFunctionRef.current.domain,
+        rule,
+        xSubdivisions,
+        ySubdivisions,
+      }
+
+      void worker.calculateRiemann(request).then(
+        (result) => {
+          if (result.jobId !== activeRiemannJobIdRef.current) return
+          setRiemannResult(result)
+          setRiemannCalculating(false)
+          setShowRiemannColumns(true)
+        },
+        (error: unknown) => {
+          if (jobId !== activeRiemannJobIdRef.current) return
+          setRiemannCalculating(false)
+          setRiemannError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível calcular a soma de Riemann.',
+          )
+        },
+      )
+    },
+    [appliedExpression],
+  )
+
+  const handleRiemannCellHover = useCallback((cell: RiemannCellSample | null) => {
+    setRiemannCell(cell)
+  }, [])
+
+  const handleRiemannOmittedChange = useCallback((count: number) => {
+    setOmittedRiemannPrisms(count)
+  }, [])
+
   const handleApplyFormula = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setParameterAnimation(null)
@@ -367,6 +446,7 @@ export default function App() {
       const nextParameterValues = Object.fromEntries(
         parameters.map((name) => [name, 1]),
       )
+      invalidateRiemannResult()
       requestSurfaceCalculation(formulaDraft, nextParameterValues, domain, true)
     } catch (error) {
       setFormulaError(
@@ -378,6 +458,7 @@ export default function App() {
   }
 
   const handleRestoreExample = () => {
+    invalidateRiemannResult()
     setParameterAnimation(null)
     setFormulaDraft(DEFAULT_EXPRESSION)
     setDomainDraft(DEFAULT_DOMAIN_DRAFT)
@@ -409,6 +490,7 @@ export default function App() {
   }
 
   const handleParameterChange = (name: string, value: number) => {
+    invalidateRiemannResult()
     if (parameterAnimation?.name === name) setParameterAnimation(null)
     const nextValues = { ...parameterValuesRef.current, [name]: value }
     parameterValuesRef.current = nextValues
@@ -506,12 +588,12 @@ export default function App() {
           </span>
         </a>
         <div className="header-context" aria-label="Seção atual">
-          <span>MATEMÁTICA</span>
+          <span>CÁLCULO</span>
           <span className="header-divider">/</span>
-          <strong>Superfícies</strong>
+          <strong>Integrais duplas</strong>
         </div>
         <span className="prototype-tag">
-          <i /> FASE 1 · CÁLCULO MULTIVARIÁVEL
+          <i /> FASE 2 · SOMAS DE RIEMANN
         </span>
       </header>
 
@@ -778,7 +860,8 @@ export default function App() {
                         className="parameter-animation-button"
                         type="button"
                         aria-pressed={isAnimating}
-                        onClick={() =>
+                        onClick={() => {
+                          if (!isAnimating) invalidateRiemannResult()
                           setParameterAnimation(
                             isAnimating
                               ? null
@@ -787,7 +870,7 @@ export default function App() {
                                   startValue: parameterValuesRef.current[name] ?? value,
                                 },
                           )
-                        }
+                        }}
                       >
                         {isAnimating ? 'Pausar' : 'Animar'}
                       </button>
@@ -849,6 +932,19 @@ export default function App() {
               </p>
             )}
           </div>
+
+          <RiemannPanel
+            workerReady={workerReady}
+            surfaceCalculating={calculating || parameterAnimation !== null}
+            integralCalculating={riemannCalculating}
+            expression={appliedExpression ?? DEFAULT_EXPRESSION}
+            result={riemannResult}
+            error={riemannError}
+            columnsVisible={showRiemannColumns}
+            omittedPrisms={omittedRiemannPrisms}
+            onCalculate={handleRiemannCalculate}
+            onColumnsVisibleChange={setShowRiemannColumns}
+          />
 
           <div className="surface-colormap">
             <label htmlFor="surface-colormap">Mapa de cores por altura</label>
@@ -995,9 +1091,16 @@ export default function App() {
         >
           <div className="scene-topline">
             <span>
-              <span className="live-dot" /> GRÁFICO DA SUPERFÍCIE
+              <span className="live-dot" />
+              {showRiemannColumns && riemannResult
+                ? 'APROXIMAÇÃO POR PRISMAS'
+                : 'GRÁFICO DA SUPERFÍCIE'}
             </span>
-            <span>COORDENADAS CARTESIANAS · RADIANOS</span>
+            <span>
+              {showRiemannColumns && riemannResult
+                ? 'SUPERFÍCIE + PRISMAS · Z PARA CIMA'
+                : 'COORDENADAS CARTESIANAS · RADIANOS'}
+            </span>
           </div>
 
           <HelloSurface
@@ -1009,10 +1112,31 @@ export default function App() {
             showGrid={showGrid}
             showAxes={showAxes}
             colorMap={colorMap}
+            riemannGrid={riemannResult?.grid ?? null}
+            showRiemannColumns={showRiemannColumns}
             highlightedElement={highlightedElement}
             onPointSelect={handlePointSelect}
+            onRiemannCellHover={handleRiemannCellHover}
+            onRiemannOmittedChange={handleRiemannOmittedChange}
             onSurfaceDiagnostics={handleSurfaceDiagnostics}
           />
+
+          {riemannCell && showRiemannColumns && (
+            <div className="riemann-cell-tooltip" role="status">
+              <span className="card-label">
+                CÉLULA {riemannCell.row + 1} × {riemannCell.column + 1}
+              </span>
+              <span>
+                <i>x</i>*, <i>y</i>* = ({formatNum(riemannCell.x)},{' '}
+                {formatNum(riemannCell.y)})
+              </span>
+              <span>
+                <i>f</i>(<i>x</i>*, <i>y</i>*) = {formatNum(riemannCell.value)}
+              </span>
+              <span>ΔA = {formatNum(riemannCell.deltaArea, 5)}</span>
+              <span>Contribuição = {formatNum(riemannCell.contribution, 6)}</span>
+            </div>
+          )}
 
           <div className="scene-caption">
             <span>

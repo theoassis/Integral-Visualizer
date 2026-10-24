@@ -18,6 +18,33 @@ export interface RiemannRefinement {
   readonly estimatedRelativeError: number | null
 }
 
+export interface RiemannCellSample {
+  readonly row: number
+  readonly column: number
+  readonly x: number
+  readonly y: number
+  readonly value: number
+  /** Positive geometric cell area, independent of interval orientation. */
+  readonly deltaArea: number
+  /** Signed contribution to the Riemann sum. */
+  readonly contribution: number
+}
+
+export interface RiemannGridData {
+  readonly rule: RiemannRule
+  readonly xMin: number
+  readonly yMin: number
+  readonly deltaX: number
+  readonly deltaY: number
+  readonly xSubdivisions: number
+  readonly ySubdivisions: number
+  /** Function values sampled by the selected Riemann rule, in row-major order. */
+  readonly values: Float64Array
+  /** Actual sample coordinates, kept separately from each prism's cell center. */
+  readonly sampleX: Float64Array
+  readonly sampleY: Float64Array
+}
+
 const MAX_RIEMANN_CELLS = 1_000_000
 
 function validateSubdivisionCount(count: number, name: string): void {
@@ -50,6 +77,7 @@ export function riemann2Rectangular(
   xBounds: RiemannInterval,
   yBounds: RiemannInterval,
   options: RiemannOptions,
+  onCellSample?: (cell: RiemannCellSample) => void,
 ): number {
   const { rule, xSubdivisions, ySubdivisions } = options
   validateSubdivisionCount(xSubdivisions, 'xSubdivisions')
@@ -101,34 +129,62 @@ export function riemann2Rectangular(
       const y1 = yStart + yWidth * ((j + 1) / ySubdivisions)
       let value: number
       let term: number | undefined
+      let sampleX: number
+      let sampleY: number
 
       switch (rule) {
         case 'left':
-          value = sample(x0, y0)
+          sampleX = x0
+          sampleY = y0
+          value = sample(sampleX, sampleY)
           break
         case 'right':
-          value = sample(x1, y1)
+          sampleX = x1
+          sampleY = y1
+          value = sample(sampleX, sampleY)
           break
         case 'midpoint':
-          value = sample(x0 / 2 + x1 / 2, y0 / 2 + y1 / 2)
+          sampleX = x0 / 2 + x1 / 2
+          sampleY = y0 / 2 + y1 / 2
+          value = sample(sampleX, sampleY)
           break
         case 'lower':
         case 'upper': {
-          const contributions = [
-            sample(x0, y0) * cellArea,
-            sample(x0, y1) * cellArea,
-            sample(x1, y0) * cellArea,
-            sample(x1, y1) * cellArea,
+          const candidates = [
+            { x: x0, y: y0 },
+            { x: x0, y: y1 },
+            { x: x1, y: y0 },
+            { x: x1, y: y1 },
           ]
-          if (!contributions.every(Number.isFinite)) {
-            throw new RangeError(
-              'Uma contribuição amostrada excede a faixa numérica suportada.',
-            )
+          let selectedValue = 0
+          let selectedTerm = 0
+          let selectedX = 0
+          let selectedY = 0
+          for (let index = 0; index < candidates.length; index += 1) {
+            const candidate = candidates[index]!
+            const candidateValue = sample(candidate.x, candidate.y)
+            const candidateTerm = candidateValue * cellArea
+            if (!Number.isFinite(candidateTerm)) {
+              throw new RangeError(
+                'Uma contribuição amostrada excede a faixa numérica suportada.',
+              )
+            }
+            const shouldSelect =
+              index === 0 ||
+              (rule === 'lower'
+                ? candidateTerm < selectedTerm
+                : candidateTerm > selectedTerm)
+            if (shouldSelect) {
+              selectedValue = candidateValue
+              selectedTerm = candidateTerm
+              selectedX = candidate.x
+              selectedY = candidate.y
+            }
           }
-          const selectedContribution =
-            rule === 'lower' ? Math.min(...contributions) : Math.max(...contributions)
-          term = selectedContribution
-          value = 0
+          sampleX = selectedX
+          sampleY = selectedY
+          value = selectedValue
+          term = selectedTerm
           break
         }
         case 'random': {
@@ -144,9 +200,9 @@ export function riemann2Rectangular(
           ) {
             throw new RangeError('O gerador aleatório deve retornar valores em [0, 1).')
           }
-          const x = xStart + xWidth * ((i + xRandom) / xSubdivisions)
-          const y = yStart + yWidth * ((j + yRandom) / ySubdivisions)
-          value = sample(x, y)
+          sampleX = xStart + xWidth * ((i + xRandom) / xSubdivisions)
+          sampleY = yStart + yWidth * ((j + yRandom) / ySubdivisions)
+          value = sample(sampleX, sampleY)
           break
         }
       }
@@ -157,6 +213,16 @@ export function riemann2Rectangular(
           'Uma contribuição da soma excede a faixa numérica suportada.',
         )
       }
+
+      onCellSample?.({
+        row: i,
+        column: j,
+        x: sampleX,
+        y: sampleY,
+        value,
+        deltaArea: Math.abs(cellArea),
+        contribution: term,
+      })
 
       const adjusted = term - compensation
       const next = sum + adjusted

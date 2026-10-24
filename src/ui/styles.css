@@ -826,6 +826,216 @@ button {
   font-size: 0.57rem;
 }
 
+/* ================================================================== */
+/*  Rectangular Riemann Sum Controls                                   */
+/* ================================================================== */
+
+.riemann-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.78rem;
+  padding: 0.95rem;
+  border: 1px solid #2a3538;
+  border-radius: var(--radius-md);
+  background: linear-gradient(145deg, rgb(139 182 162 / 7%), transparent 54%), #13191c;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
+}
+
+.riemann-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.riemann-panel-heading h2 {
+  margin: 0.28rem 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-math);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.riemann-panel-symbol {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #354541;
+  border-radius: var(--radius-sm);
+  color: #c3d6c8;
+  background: rgb(139 182 162 / 8%);
+  font-family: var(--font-math);
+  font-size: 0.76rem;
+}
+
+.riemann-expression,
+.riemann-help,
+.riemann-disclaimer {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.riemann-expression code {
+  color: #d4c89e;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.riemann-field,
+.riemann-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+}
+
+.riemann-field select {
+  min-height: 2.15rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: #0e1316;
+  font-size: 0.72rem;
+}
+
+.riemann-field select:focus-visible,
+.riemann-calculate-button:focus-visible,
+.riemann-panel input:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: 2px;
+}
+
+.riemann-subdivision-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.72rem;
+}
+
+.riemann-range-field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.riemann-range-field output {
+  color: #d7d5ca;
+  font-family: var(--font-mono);
+  font-size: 0.67rem;
+}
+
+.riemann-range-field input {
+  width: 100%;
+  margin: 0.2rem 0 0;
+  accent-color: var(--accent-emerald);
+}
+
+.riemann-calculate-button {
+  min-height: 2.35rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #6e9a85;
+  border-radius: var(--radius-sm);
+  color: #101713;
+  background: #9bc1a9;
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.riemann-calculate-button:hover:not(:disabled) {
+  background: #b2d1ba;
+  transform: translateY(-1px);
+}
+
+.riemann-calculate-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.riemann-visual-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.riemann-visual-toggle input {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--accent-emerald);
+}
+
+.riemann-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.55rem;
+  margin: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.riemann-results > div {
+  min-width: 0;
+  padding: 0.42rem 0.45rem;
+  border: 1px solid #252e32;
+  border-radius: var(--radius-xs);
+  background: rgb(8 12 14 / 48%);
+}
+
+.riemann-results > .riemann-result-primary {
+  grid-column: 1 / -1;
+  border-color: #40544b;
+  background: rgb(139 182 162 / 8%);
+}
+
+.riemann-results dt {
+  color: var(--text-muted);
+  font-size: 0.56rem;
+  line-height: 1.35;
+}
+
+.riemann-results dd {
+  margin: 0.22rem 0 0;
+  color: #dce5dd;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.riemann-result-primary dd {
+  color: #d8e8d8;
+  font-size: 1rem;
+}
+
+.riemann-disclaimer {
+  padding-left: 0.5rem;
+  border-left: 2px solid #627565;
+  font-size: 0.61rem;
+}
+
+.riemann-error {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(215 156 157 / 35%);
+  border-radius: var(--radius-xs);
+  color: #e7b1b2;
+  background: rgb(215 91 96 / 8%);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .formula-help,
 .formula-error,
 .surface-warning {
@@ -1678,6 +1888,35 @@ input:focus-visible + .toggle-indicator {
   box-shadow: 0 10px 28px rgb(0 0 0 / 28%);
   pointer-events: auto;
   animation: tooltipIn 120ms ease;
+}
+
+.riemann-cell-tooltip {
+  position: absolute;
+  z-index: 4;
+  top: 3.8rem;
+  left: 1.1rem;
+  display: flex;
+  min-width: 12rem;
+  max-width: min(18rem, calc(100% - 2.2rem));
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgb(160 194 167 / 42%);
+  border-radius: var(--radius-sm);
+  color: #dce5dd;
+  background: rgb(12 17 20 / 94%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
+  backdrop-filter: blur(12px);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  pointer-events: none;
+  animation: tooltipIn 120ms ease;
+}
+
+.riemann-cell-tooltip .card-label {
+  margin-bottom: 0.12rem;
+  color: #a9c6ad;
+  font-size: 0.55rem;
 }
 
 .point-inspector-close {

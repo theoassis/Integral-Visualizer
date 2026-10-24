@@ -59,3 +59,17 @@ export function integral2Rectangular(
   }
   return result
 }
+
+/** Integrates over a disk by the polar substitution (x,y)=(r cos θ,r sin θ). */
+export function integral2DiskPolar(f: Integrand2D, radius = 1, order = 32): number {
+  if (!Number.isFinite(radius) || radius <= 0) {
+    throw new RangeError('O raio do disco precisa ser finito e positivo.')
+  }
+
+  return integral2Rectangular(
+    (r, theta) => f(r * Math.cos(theta), r * Math.sin(theta)) * r,
+    [0, radius],
+    [0, 2 * Math.PI],
+    order,
+  )
+}

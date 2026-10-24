@@ -24,6 +24,8 @@ describe('riemann calculation worker', () => {
     expect(result.absoluteError).toBeLessThan(1e-14)
     expect(result.relativeError).toBeLessThan(1e-14)
     expect(result.referenceRefinementDifference).toBeLessThan(1e-14)
+    expect(result.convergence).toHaveLength(5)
+    expect(result.observedOrder).toBeNull()
     expect(result.elapsedMs).toBeGreaterThanOrEqual(0)
     expect(result.grid.values).toHaveLength(4)
     expect(result.grid.sampleX[0]).toBeCloseTo(0.25, 14)
@@ -42,5 +44,48 @@ describe('riemann calculation worker', () => {
 
     expect(result.referenceValue).toBeCloseTo(0, 14)
     expect(result.relativeError).toBeNull()
+  })
+
+  it('observa ordem próxima de dois para ponto médio em x²+y²', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: 'x^2+y^2',
+      rule: 'midpoint',
+    })
+
+    expect(result.observedOrder).toBeCloseTo(2, 8)
+    expect(result.convergence.every(({ error }) => error > 0)).toBe(true)
+  })
+
+  it('mantém a referência de sen x sen y em [0, π]² próxima de 4', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: 'sin(x)*sin(y)',
+      domain: {
+        x: { min: 0, max: Math.PI },
+        y: { min: 0, max: Math.PI },
+      },
+      rule: 'midpoint',
+    })
+
+    expect(result.referenceValue).toBeCloseTo(4, 12)
+    expect(result.value).toBeCloseTo(Math.PI ** 2 / 2, 12)
+  })
+
+  it('observa ordem próxima de um para a regra à esquerda', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: 'x^2+y^2',
+      rule: 'left',
+    })
+
+    expect(result.observedOrder).toBeCloseTo(1, 1)
+  })
+
+  it('mantém reproduzível o gráfico de convergência da regra aleatória', () => {
+    const first = calculateRiemannIntegral({ ...request, rule: 'random' })
+    const second = calculateRiemannIntegral({ ...request, rule: 'random' })
+
+    expect(first.convergence).toEqual(second.convergence)
   })
 })

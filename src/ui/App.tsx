@@ -32,6 +32,8 @@ import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 import { parseDomainBound } from './domainBound'
 import RiemannPanel from './RiemannPanel'
+import type { RiemannExample } from './riemannExamples'
+import type { RiemannSceneMode } from './RiemannPanel'
 
 const fn = sinCosFunction
 const DEFAULT_EXPRESSION = 'sin(x)*cos(y)'
@@ -162,7 +164,11 @@ export default function App() {
   )
   const [riemannError, setRiemannError] = useState<string | null>(null)
   const [riemannCalculating, setRiemannCalculating] = useState(false)
-  const [showRiemannColumns, setShowRiemannColumns] = useState(true)
+  const [riemannSceneMode, setRiemannSceneMode] = useState<RiemannSceneMode>('prisms')
+  const [riemannExactValue, setRiemannExactValue] = useState<number | null>(null)
+  const showRiemannColumns =
+    riemannSceneMode === 'prisms' || riemannSceneMode === 'both'
+  const showIntegralSolid = riemannSceneMode === 'solid' || riemannSceneMode === 'both'
   const [riemannCell, setRiemannCell] = useState<RiemannCellSample | null>(null)
   const [omittedRiemannPrisms, setOmittedRiemannPrisms] = useState(0)
   const [autoRotate, setAutoRotate] = useState(true)
@@ -199,6 +205,8 @@ export default function App() {
   const invalidateRiemannResult = () => {
     activeRiemannJobIdRef.current += 1
     setRiemannResult(null)
+    setRiemannExactValue(null)
+    setRiemannSceneMode('prisms')
     setRiemannError(null)
     setRiemannCalculating(false)
     setRiemannCell(null)
@@ -404,7 +412,7 @@ export default function App() {
           if (result.jobId !== activeRiemannJobIdRef.current) return
           setRiemannResult(result)
           setRiemannCalculating(false)
-          setShowRiemannColumns(true)
+          setRiemannSceneMode('prisms')
         },
         (error: unknown) => {
           if (jobId !== activeRiemannJobIdRef.current) return
@@ -427,6 +435,27 @@ export default function App() {
   const handleRiemannOmittedChange = useCallback((count: number) => {
     setOmittedRiemannPrisms(count)
   }, [])
+
+  const handleRiemannExampleSelect = (example: RiemannExample) => {
+    const domain = example.domain
+    const domainBoundText = (value: number) =>
+      value === Math.PI ? 'pi' : value === -Math.PI ? '-pi' : String(value)
+    const parameters = Object.fromEntries(
+      getExpressionParameters(example.expression).map((name) => [name, 1]),
+    )
+    invalidateRiemannResult()
+    setParameterAnimation(null)
+    setFormulaDraft(example.expression)
+    setDomainDraft({
+      xMin: domainBoundText(domain.x.min),
+      xMax: domainBoundText(domain.x.max),
+      yMin: domainBoundText(domain.y.min),
+      yMax: domainBoundText(domain.y.max),
+    })
+    setRiemannExactValue(example.exactValue)
+    setFormulaError(null)
+    requestSurfaceCalculation(example.expression, parameters, domain, true)
+  }
 
   const handleApplyFormula = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -940,10 +969,12 @@ export default function App() {
             expression={appliedExpression ?? DEFAULT_EXPRESSION}
             result={riemannResult}
             error={riemannError}
-            columnsVisible={showRiemannColumns}
+            sceneMode={riemannSceneMode}
             omittedPrisms={omittedRiemannPrisms}
+            exactValue={riemannExactValue}
             onCalculate={handleRiemannCalculate}
-            onColumnsVisibleChange={setShowRiemannColumns}
+            onSceneModeChange={setRiemannSceneMode}
+            onExampleSelect={handleRiemannExampleSelect}
           />
 
           <div className="surface-colormap">
@@ -1093,13 +1124,19 @@ export default function App() {
             <span>
               <span className="live-dot" />
               {showRiemannColumns && riemannResult
-                ? 'APROXIMAÇÃO POR PRISMAS'
-                : 'GRÁFICO DA SUPERFÍCIE'}
+                ? showIntegralSolid
+                  ? 'PRISMAS + SÓLIDO ASSINADO'
+                  : 'APROXIMAÇÃO POR PRISMAS'
+                : showIntegralSolid && riemannResult
+                  ? 'SÓLIDO ASSINADO DA FUNÇÃO'
+                  : 'GRÁFICO DA SUPERFÍCIE'}
             </span>
             <span>
               {showRiemannColumns && riemannResult
                 ? 'SUPERFÍCIE + PRISMAS · Z PARA CIMA'
-                : 'COORDENADAS CARTESIANAS · RADIANOS'}
+                : showIntegralSolid && riemannResult
+                  ? 'SUPERFÍCIE + SÓLIDO · Z PARA CIMA'
+                  : 'COORDENADAS CARTESIANAS · RADIANOS'}
             </span>
           </div>
 
@@ -1114,6 +1151,7 @@ export default function App() {
             colorMap={colorMap}
             riemannGrid={riemannResult?.grid ?? null}
             showRiemannColumns={showRiemannColumns}
+            showIntegralSolid={showIntegralSolid}
             highlightedElement={highlightedElement}
             onPointSelect={handlePointSelect}
             onRiemannCellHover={handleRiemannCellHover}

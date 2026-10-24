@@ -37,6 +37,7 @@ import type { RiemannCellSample, RiemannGridData } from '../core/quad/riemann'
 import { estimateGridGradient, SURFACE_SEGMENTS, type SurfaceGrid } from './surfaceGrid'
 import { evaluateHeightColor, type SurfaceColorMap } from './colorMaps'
 import { buildRiemannColumns, type RiemannColumnsObject } from './riemannColumns'
+import { buildIntegralSolidGeometry } from './integralSolid'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -69,6 +70,7 @@ interface HelloSurfaceProps {
   colorMap: SurfaceColorMap
   riemannGrid: RiemannGridData | null
   showRiemannColumns: boolean
+  showIntegralSolid: boolean
   highlightedElement?: 'surface' | 'gradient' | 'criticalPoints' | 'axes' | null
   onPointSelect?: (info: PointInfo | null) => void
   onRiemannCellHover?: (cell: RiemannCellSample | null) => void
@@ -160,6 +162,7 @@ export default function HelloSurface({
   colorMap,
   riemannGrid,
   showRiemannColumns,
+  showIntegralSolid,
   highlightedElement,
   onPointSelect,
   onRiemannCellHover,
@@ -182,8 +185,10 @@ export default function HelloSurface({
   const surfaceMeshRef = useRef<Mesh | null>(null)
   const surfaceMaterialRef = useRef<ShaderMaterial | null>(null)
   const riemannColumnsRef = useRef<RiemannColumnsObject | null>(null)
+  const integralSolidRef = useRef<Mesh | null>(null)
   const riemannGridRef = useRef(riemannGrid)
   const showRiemannColumnsRef = useRef(showRiemannColumns)
+  const showIntegralSolidRef = useRef(showIntegralSolid)
   const onRiemannCellHoverRef = useRef(onRiemannCellHover)
   const onRiemannOmittedChangeRef = useRef(onRiemannOmittedChange)
   const hoveredRiemannCellRef = useRef<{
@@ -213,6 +218,13 @@ export default function HelloSurface({
     }
     if (!showRiemannColumns) onRiemannCellHoverRef.current?.(null)
   }, [showRiemannColumns])
+
+  useEffect(() => {
+    showIntegralSolidRef.current = showIntegralSolid
+    if (integralSolidRef.current) {
+      integralSolidRef.current.visible = showIntegralSolid
+    }
+  }, [showIntegralSolid])
 
   useEffect(() => {
     onRiemannCellHoverRef.current = onRiemannCellHover
@@ -620,6 +632,7 @@ export default function HelloSurface({
       surfaceMeshRef.current = null
       surfaceMaterialRef.current = null
       riemannColumnsRef.current = null
+      integralSolidRef.current = null
       sceneRef.current = null
       cameraRef.current = null
       lastAppliedFunctionRef.current = null
@@ -668,6 +681,35 @@ export default function HelloSurface({
       }
     }
   }, [riemannGrid, colorMap])
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !calculatedGrid) return
+
+    const solid = new Mesh(
+      buildIntegralSolidGeometry(calculatedGrid),
+      new MeshStandardMaterial({
+        color: '#a9d2bc',
+        roughness: 0.48,
+        metalness: 0,
+        side: DoubleSide,
+        transparent: true,
+        opacity: 0.2,
+        depthWrite: false,
+      }),
+    )
+    solid.name = 'signed-integral-solid'
+    solid.visible = showIntegralSolidRef.current
+    solid.renderOrder = 1
+    integralSolidRef.current = solid
+    scene.add(solid)
+
+    return () => {
+      scene.remove(solid)
+      disposeObject(solid)
+      if (integralSolidRef.current === solid) integralSolidRef.current = null
+    }
+  }, [calculatedGrid])
 
   useEffect(() => {
     const scene = sceneRef.current

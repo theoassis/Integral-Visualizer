@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import type { RiemannRule } from '../core/quad/riemann'
 import type { RiemannCalculationResult } from '../workers/riemannCalculation'
+import { RIEMANN_EXAMPLES, type RiemannExample } from './riemannExamples'
+
+export type RiemannSceneMode = 'surface' | 'prisms' | 'solid' | 'both'
 
 interface RiemannPanelProps {
   readonly workerReady: boolean
@@ -9,14 +12,16 @@ interface RiemannPanelProps {
   readonly expression: string
   readonly result: RiemannCalculationResult | null
   readonly error: string | null
-  readonly columnsVisible: boolean
   readonly omittedPrisms: number
+  readonly sceneMode: RiemannSceneMode
+  readonly exactValue: number | null
   readonly onCalculate: (
     rule: RiemannRule,
     xSubdivisions: number,
     ySubdivisions: number,
   ) => void
-  readonly onColumnsVisibleChange: (visible: boolean) => void
+  readonly onSceneModeChange: (mode: RiemannSceneMode) => void
+  readonly onExampleSelect: (example: RiemannExample) => void
 }
 
 const RULES: Array<{ value: RiemannRule; label: string }> = [
@@ -45,10 +50,12 @@ export default function RiemannPanel({
   expression,
   result,
   error,
-  columnsVisible,
   omittedPrisms,
+  sceneMode,
+  exactValue,
   onCalculate,
-  onColumnsVisibleChange,
+  onSceneModeChange,
+  onExampleSelect,
 }: RiemannPanelProps) {
   const [rule, setRule] = useState<RiemannRule>('midpoint')
   const [xSubdivisions, setXSubdivisions] = useState(24)
@@ -70,6 +77,28 @@ export default function RiemannPanel({
         Aproximando a integral de <code>{expression || 'f(x, y)'}</code> no domínio da
         função.
       </p>
+
+      <label className="riemann-field" htmlFor="riemann-example">
+        Exemplo de referência
+        <select
+          id="riemann-example"
+          defaultValue=""
+          onChange={(event) => {
+            const example = RIEMANN_EXAMPLES.find(
+              (item) => item.id === event.currentTarget.value,
+            )
+            if (example) onExampleSelect(example)
+            event.currentTarget.value = ''
+          }}
+        >
+          <option value="">Escolha uma integral conhecida…</option>
+          {RIEMANN_EXAMPLES.map((example) => (
+            <option key={example.id} value={example.id}>
+              {example.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="riemann-field" htmlFor="riemann-rule">
         Regra de amostragem
@@ -141,13 +170,21 @@ export default function RiemannPanel({
 
       {result && (
         <>
-          <label className="riemann-visual-toggle">
-            <input
-              type="checkbox"
-              checked={columnsVisible}
-              onChange={(event) => onColumnsVisibleChange(event.currentTarget.checked)}
-            />
-            <span>Mostrar prismas na cena 3D</span>
+          <label className="riemann-field" htmlFor="riemann-scene-mode">
+            Camadas da cena 3D
+            <select
+              id="riemann-scene-mode"
+              value={sceneMode}
+              onChange={(event) => {
+                const mode = event.currentTarget.value as RiemannSceneMode
+                onSceneModeChange(mode)
+              }}
+            >
+              <option value="surface">Superfície</option>
+              <option value="prisms">Superfície + prismas</option>
+              <option value="solid">Superfície + sólido</option>
+              <option value="both">Superfície + prismas + sólido</option>
+            </select>
           </label>
           {omittedPrisms > 0 && (
             <p className="riemann-help" role="status">
@@ -166,10 +203,22 @@ export default function RiemannPanel({
               <dt>Referência numérica · Gauss 64×64</dt>
               <dd>{formatValue(result.referenceValue)}</dd>
             </div>
+            {exactValue !== null && (
+              <div>
+                <dt>Valor exato do exemplo</dt>
+                <dd>{formatValue(exactValue)}</dd>
+              </div>
+            )}
             <div>
-              <dt>Erro absoluto |S − I|</dt>
+              <dt>Erro absoluto |S − I₆₄|</dt>
               <dd>{formatValue(result.absoluteError)}</dd>
             </div>
+            {exactValue !== null && (
+              <div>
+                <dt>Erro da soma em relação ao exato</dt>
+                <dd>{formatValue(Math.abs(result.value - exactValue))}</dd>
+              </div>
+            )}
             <div>
               <dt>Erro relativo</dt>
               <dd>
@@ -187,12 +236,96 @@ export default function RiemannPanel({
               <dd>{formatValue(result.referenceRefinementDifference)}</dd>
             </div>
           </dl>
+          <section
+            className="riemann-convergence"
+            aria-labelledby="convergence-heading"
+          >
+            <div className="riemann-convergence-heading">
+              <h3 id="convergence-heading">Convergência</h3>
+              <span>
+                ordem observada{' '}
+                {result.observedOrder === null
+                  ? 'indisponível'
+                  : `≈ ${formatValue(result.observedOrder)}`}
+              </span>
+            </div>
+            <ConvergenceChart result={result} />
+            <p className="riemann-help">
+              Erro em escala log-log para n igual nas duas direções. A ordem é uma
+              regressão das amostras mostradas, não uma garantia teórica; a regra
+              aleatória pode oscilar.
+            </p>
+          </section>
           <p className="riemann-disclaimer">
-            A referência é uma quadratura de alta ordem, não um valor simbólico. O
-            refinamento estima estabilidade; não certifica o erro.
+            A referência usa quadratura de Gauss–Legendre 64×64, não um valor simbólico
+            nem certificado. O sólido é construído da malha refinada e representa o
+            volume assinado entre a superfície e z = 0; é uma aproximação geométrica.
           </p>
         </>
       )}
     </section>
+  )
+}
+
+function ConvergenceChart({ result }: { readonly result: RiemannCalculationResult }) {
+  const points = result.convergence.filter(
+    ({ subdivisions, error }) =>
+      subdivisions > 0 && error > 0 && Number.isFinite(error),
+  )
+  if (points.length < 2) {
+    return (
+      <p className="riemann-help" role="status">
+        A referência e a soma coincidem na precisão numérica disponível; não há pontos
+        suficientes para traçar o log do erro.
+      </p>
+    )
+  }
+
+  const width = 320
+  const height = 152
+  const left = 38
+  const right = 12
+  const top = 12
+  const bottom = 28
+  const xValues = points.map(({ subdivisions }) => Math.log10(subdivisions))
+  const yValues = points.map(({ error }) => Math.log10(error))
+  const xMin = Math.min(...xValues)
+  const xMax = Math.max(...xValues)
+  const yMin = Math.min(...yValues)
+  const yMax = Math.max(...yValues)
+  const xSpan = xMax - xMin || 1
+  const ySpan = yMax - yMin || 1
+  const coordinate = (index: number) => ({
+    x: left + ((xValues[index]! - xMin) / xSpan) * (width - left - right),
+    y: top + ((yMax - yValues[index]!) / ySpan) * (height - top - bottom),
+  })
+  const plotPoints = points.map((_, index) => coordinate(index))
+  const line = plotPoints.map(({ x, y }) => `${x},${y}`).join(' ')
+
+  return (
+    <svg
+      className="riemann-convergence-chart"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label="Gráfico log-log do erro absoluto em função do número de subdivisões"
+    >
+      <line x1={left} y1={top} x2={left} y2={height - bottom} />
+      <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} />
+      <polyline points={line} />
+      {plotPoints.map(({ x, y }, index) => (
+        <g key={points[index]!.subdivisions}>
+          <circle cx={x} cy={y} r="3" />
+          <text x={x} y={height - 10} textAnchor="middle">
+            {points[index]!.subdivisions}
+          </text>
+        </g>
+      ))}
+      <text x="5" y="13">
+        erro
+      </text>
+      <text x={width - 16} y={height - 2}>
+        n
+      </text>
+    </svg>
   )
 }

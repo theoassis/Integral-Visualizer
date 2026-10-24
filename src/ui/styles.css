@@ -1013,6 +1013,70 @@ button {
   overflow-wrap: anywhere;
 }
 
+.riemann-convergence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.55rem 0.45rem;
+  border: 1px solid #252e32;
+  border-radius: var(--radius-xs);
+  background: rgb(8 12 14 / 48%);
+}
+
+.riemann-convergence-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.riemann-convergence-heading h3 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-math);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.riemann-convergence-heading span {
+  color: #c4d8c9;
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+  text-align: right;
+}
+
+.riemann-convergence-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.riemann-convergence-chart line {
+  stroke: #53635a;
+  stroke-width: 1;
+}
+
+.riemann-convergence-chart polyline {
+  fill: none;
+  stroke: #9bc1a9;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.riemann-convergence-chart circle {
+  fill: #d6e7d8;
+  stroke: #42574a;
+  stroke-width: 1;
+}
+
+.riemann-convergence-chart text {
+  fill: #aab7ad;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
 .riemann-result-primary dd {
   color: #d8e8d8;
   font-size: 1rem;

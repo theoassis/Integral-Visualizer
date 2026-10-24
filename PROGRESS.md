@@ -6,45 +6,47 @@
 ## Resumo atual
 
 - **Fase atual:** 2 — Integral dupla retangular
-- **Tarefa atual:** F2-T3 concluída — regras de Riemann retangulares; próxima F2-T4 — visualização de prismas e painel de resultados
-- **Última sessão:** 2026-10-23 — somas de Riemann e estimativa por refinamento.
-- **Estado dos testes:** `pnpm exec vitest run` — 113 testes passando (11 arquivos, 0 falhas)
-- **Estado do build/tipos:** TypeScript da aplicação passou com `ignoreDeprecations` sobrescrito para `5.0`; lint, formatação e `vite build` passaram. `pnpm build` está bloqueado por `ignoreDeprecations: "6.0"` na alteração local de `tsconfig.app.json`; bundle inicial 1.513,07 kB (413,16 kB gzip), Worker 676,73 kB.
-- **Último commit:** esta sessão — `feat: add rectangular Riemann sums`
+- **Tarefa atual:** F2-T5 concluída; Fase 2 aguarda o portão de revisão matemática do usuário.
+- **Última sessão:** 2026-10-24 — convergência, sólido assinado, presets e cobertura do caso A4.
+- **Estado dos testes:** `pnpm exec vitest run` — 131 testes passando (15 arquivos, 0 falhas).
+- **Estado do build/tipos:** `pnpm tsc --noEmit`, TypeScript da aplicação com `--ignoreDeprecations 5.0`, TypeScript da configuração Node, lint e formatação passaram. `pnpm build` continua bloqueado por `TS5103` (`ignoreDeprecations: "6.0"` em `tsconfig.app.json`); `pnpm exec vite build` passou com aviso do chunk grande (1.531,98 kB; Worker 683,00 kB). A inspeção visual no navegador não foi possível porque o uso local de browser está desativado nas configurações de Work.
+- **Último commit:** `feat: add Riemann convergence and volume view` (F2-T5).
 
 ## Painel de fases
 
-| Fase | Nome                              | Status          | Portão de revisão matemática                          |
-| ---- | --------------------------------- | --------------- | ----------------------------------------------------- |
-| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1        |
-| 1    | Fundação e superfícies            | ✅ concluída    | ✅ aprovada explicitamente pelo usuário em 2026-10-23 |
-| 2    | Integral dupla retangular         | 🟨 em andamento | ⬜                                                    |
-| 3    | Regiões gerais e polar (**MVP**)  | ⬜              | ⬜                                                    |
-| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                                    |
-| 5    | Integral tripla                   | ⬜              | ⬜                                                    |
-| 6    | Equações diferenciais             | ⬜              | ⬜                                                    |
-| 7    | Plataforma e polimento            | ⬜              | ⬜                                                    |
-| 8    | Desempenho e WASM                 | ⬜              | ⬜                                                    |
-| 9    | Extras                            | ⬜              | —                                                     |
+| Fase | Nome                              | Status              | Portão de revisão matemática                          |
+| ---- | --------------------------------- | ------------------- | ----------------------------------------------------- |
+| 0    | Preparação                        | ✅ concluída        | ✅ aprovado pelo usuário ao solicitar a Fase 1        |
+| 1    | Fundação e superfícies            | ✅ concluída        | ✅ aprovada explicitamente pelo usuário em 2026-10-23 |
+| 2    | Integral dupla retangular         | 🟨 revisão pendente | 🟨 aguardando aprovação do relatório matemático       |
+| 3    | Regiões gerais e polar (**MVP**)  | ⬜                  | ⬜                                                    |
+| 4    | Cálculo diferencial multivariável | ⬜                  | ⬜                                                    |
+| 5    | Integral tripla                   | ⬜                  | ⬜                                                    |
+| 6    | Equações diferenciais             | ⬜                  | ⬜                                                    |
+| 7    | Plataforma e polimento            | ⬜                  | ⬜                                                    |
+| 8    | Desempenho e WASM                 | ⬜                  | ⬜                                                    |
+| 9    | Extras                            | ⬜                  | —                                                     |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprovada na revisão
 
 ## Tarefas da fase atual
 
-| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                                           |
-| ----- | ---------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | Verificações de lint, tipos e build reportadas pelo usuário; CI informado como verde.                                                                 |
-| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`.                                                                                                    |
-| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ✅     | Revisão aprovada pelo usuário ao solicitar explicitamente o avanço para a Fase 1; 8 testes matemáticos passam.                                        |
-| F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal.                  |
-| F1-T2 | Parser seguro de expressões                                | ✅     | Commit `3b63752`; lista branca, aliases, rejeição de nós perigosos e testes. A sessão atual corrige a notação escolar concatenada `senxtany`.         |
-| F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha. |
-| F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                     |
-| F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.          |
-| F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                       |
-| F2-T1 | Nós e pesos de Gauss–Legendre                              | ✅     | Regras simétricas crescentes em [−1,1], testes de momentos até grau 2n−1, ordem alta 256 e validação de entrada.                                      |
-| F2-T2 | Integral dupla iterada em retângulos                       | ✅     | Produto tensorial de Gauss–Legendre com limites e orientação configuráveis; A1–A3 verificados contra os valores exatos.                               |
-| F2-T3 | Regras de soma de Riemann retangulares                     | ✅     | Regras esquerda/direita/médio/inferior/superior/aleatória; refinamento n→2n com estimativa; convergência de ordem 1 e 2 testada.                      |
+| ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                                                                                            |
+| ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F0-T1 | Scaffolding, lint, formatação, CI                          | ✅     | Verificações de lint, tipos e build reportadas pelo usuário; CI informado como verde.                                                                                                                  |
+| F0-T2 | ADRs: stack, convenções matemáticas, formato do estado     | ✅     | ADR-001, ADR-002 e ADR-003 criados em `docs/adr/`.                                                                                                                                                     |
+| F0-T3 | Protótipo "hello surface" (z = sin(x)·cos(y), Z para cima) | ✅     | Revisão aprovada pelo usuário ao solicitar explicitamente o avanço para a Fase 1; 8 testes matemáticos passam.                                                                                         |
+| F1-T1 | Layout em três colunas, cena 3D, eixos e marcações         | ✅     | Painéis de controle, cena e análise; ticks em π/2 para x/y e escala numérica para z; verificação responsiva sem overflow horizontal.                                                                   |
+| F1-T2 | Parser seguro de expressões                                | ✅     | Commit `3b63752`; lista branca, aliases, rejeição de nós perigosos e testes. A sessão atual corrige a notação escolar concatenada `senxtany`.                                                          |
+| F1-T3 | Campo de fórmula e superfície                              | ✅     | Commit `68a0c7f` + adendo da sessão 8; parser tolera `senxtany`, domínio configurável, teclado científico, buracos e explicação de montagem da malha.                                                  |
+| F1-T4 | Cálculo em Web Worker                                      | ✅     | Worker com Comlink avalia domínio/faixa e monta malha; buffers transferíveis, debounce, cancelamento por id e 3 testes dedicados.                                                                      |
+| F1-T5 | Parâmetros livres e sliders                                | ✅     | Cada parâmetro livre tem slider e animação individual com velocidade; testes cobrem continuidade, faixa, ciclo, validação e passo do slider.                                                           |
+| F1-T6 | Mapas de cores, normais analíticas e picking               | ✅     | Paletas Atlas/Viridis/Térmico; gradientes simbólicos para normais e inspeção persistente por clique em (x,y,f).                                                                                        |
+| F2-T1 | Nós e pesos de Gauss–Legendre                              | ✅     | Regras simétricas crescentes em [−1,1], testes de momentos até grau 2n−1, ordem alta 256 e validação de entrada.                                                                                       |
+| F2-T2 | Integral dupla iterada em retângulos                       | ✅     | Produto tensorial de Gauss–Legendre com limites e orientação configuráveis; A1–A3 verificados contra os valores exatos.                                                                                |
+| F2-T3 | Regras de soma de Riemann retangulares                     | ✅     | Regras esquerda/direita/médio/inferior/superior/aleatória; refinamento n→2n com estimativa; convergência de ordem 1 e 2 testada.                                                                       |
+| F2-T4 | Visualização de prismas e painel de resultados             | ✅     | `InstancedMesh`, controles de 2–200 em x/y, inspeção da amostra/contribuição por hover; resultados e referência numérica Gauss–Legendre 64×64. 118 testes passam; WebGL não inspecionado nesta sessão. |
+| F2-T5 | Convergência, sólido e exemplos                            | ✅     | Gráfico log-log e inclinação estimada; sólido assinado da malha; quatro presets; A4 no disco unitário via coordenadas polares; documentação e roteiro em `docs/f2-t5-riemann.md`.                      |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -55,7 +57,7 @@ Marque conforme forem implementados **e passando**.
 | A1  | ∬ xy dA em [0,1]² = 1/4                              | ✅           | ✅       |
 | A2  | ∬ (x²+y²) dA em [0,1]² = 2/3                         | ✅           | ✅       |
 | A3  | ∬ sen x sen y em [0,π]² = 4                          | ✅           | ✅       |
-| A4  | ∬ (x²+y²) no disco unitário = π/2                    | ⬜           | ⬜       |
+| A4  | ∬ (x²+y²) no disco unitário = π/2                    | ✅           | ✅       |
 | A5  | ∬ x dA no triângulo 0≤y≤x≤1 = 1/3                    | ⬜           | ⬜       |
 | A6  | ∬ (x+y) entre y=x² e y=√x = 3/10                     | ⬜           | ⬜       |
 | A7  | Volume sob z=1−x²−y² no disco unitário = π/2         | ⬜           | ⬜       |
@@ -88,7 +90,7 @@ Marque conforme forem implementados **e passando**.
 ## Ambiguidades e riscos encontrados na leitura inicial
 
 - **Segurança do parser:** a divergência entre as seções 9 e 17 do plano foi resolvida no ADR-001 em favor de interpretar uma AST com lista branca, sem `eval`/`new Function`; F1-T2 cobre a validação de nós e propriedades herdadas.
-- **Escopo da Fase 2:** o critério de aceite do roadmap inclui A1–A4, embora A4 use coordenadas polares e a interface de regiões polares esteja na Fase 3. O núcleo numérico poderá usar limites radiais simples para A4; regiões gerais/editor ficam na Fase 3.
+- **Escopo da Fase 2:** A4 é validado no núcleo por `integral2DiskPolar` com Jacobiano `r`; editor de regiões, geometria polar e UI seguem na Fase 3.
 - **Rótulos “inferior/superior”:** mantê-los como estimativas amostradas sem garantia até que intervalos certificados sejam implementados; atualizar o critério em `PROMPTS_FASES.md` e `REVISAO_MATEMATICA.md`.
 - **Compatibilidade de ferramentas:** TypeScript 7.0.2 não atendia ao peer range do `typescript-eslint` 8.71.2. A base usa TypeScript 5.9.3, dentro do peer range publicado.
 - **Arquivos do roteiro:** `CLAUDE.md` e `REVISAO_MATEMATICA.md` citam `docs/PROMPTS_FASES.md`, mas esse arquivo não existe no checkout atual; o plano oficial em PDF foi usado para definir F2-T1.
@@ -424,3 +426,22 @@ Marque conforme forem implementados **e passando**.
   5. `x-y`, `[0,1]²`: referência `0`; a simetria pode revelar erro absoluto e a política para erro relativo quando o resultado é zero.
 - **Limitações:** os cálculos deste passo são núcleo puro, ainda não aparecem na interface nem renderizam prismas. A4 (disco) continua fora da região retangular e depende das tarefas de regiões/polares.
 - **Próximo passo:** F2-T4 — prismas instanciados, controles de subdivisões e painel com soma, valor de alta precisão, erros absoluto/relativo e tempo de cálculo, conforme o plano.
+
+### Sessão 16
+
+- **Data:** 2026-10-24
+- **Tarefa:** F2-T4 verificada e F2-T5 — convergência, sólido e exemplos; fechamento técnico da Fase 2.
+- **Feito:**
+  1. A F2-T4 está no commit `0a2fac8`. A interface oferece prismas instanciados, subdivisões independentes, hover com amostra/área/contribuição e resultados contra Gauss 64×64.
+  2. Adicionado gráfico log-log do erro em função de `n` e ajuste de ordem observada por mínimos quadrados nos logaritmos. Erros no piso de arredondamento são omitidos; a ordem não é apresentada como garantia teórica.
+  3. Adicionado sólido translúcido fechado entre a malha da superfície e `z=0`, com orientação de faces verificada para alturas positivas e negativas. Buracos por amostras inválidas não ganham paredes falsas.
+  4. Adicionado seletor de camadas (superfície, prismas, sólido, ambos), quatro presets de integrais com valores exatos e guia de uso em `docs/f2-t5-riemann.md`.
+  5. Para concluir a cobertura A1–A4 do roteiro, `integral2DiskPolar` aplica a transformação polar e Jacobiano `r`. Para A4, `∬(x²+y²)dA = ∫₀²π∫₀¹r³drdθ = π/2`; testes também verificam o raio 2 e rejeições de raio inválido.
+- **Verificações executadas:**
+  - `pnpm exec vitest run`: 131 testes em 15 arquivos, 0 falhas.
+  - `pnpm tsc --noEmit`: passou; `pnpm build`: bloqueado por `TS5103` em `tsconfig.app.json` (`ignoreDeprecations: "6.0"`).
+  - TypeScript da aplicação com `--ignoreDeprecations 5.0`: passou.
+  - `pnpm lint`: passou; `pnpm format:check`: passou; `git diff --check`: passou.
+  - `pnpm exec vite build`: passou; bundle inicial 1.531,98 kB (418,77 kB gzip), Worker 683,00 kB; permanece o aviso do Vite para chunks acima de 500 kB.
+- **Não verificado:** inspeção manual de WebGL no navegador bloqueada porque o uso local de browser está desativado nas configurações de Work; CI remoto também não foi consultado. O sólido é uma aproximação geométrica na resolução da malha, não uma construção exata para função arbitrária.
+- **Próximo passo:** portão de revisão matemática da Fase 2. Não começar a Fase 3 sem aprovação explícita do revisor.

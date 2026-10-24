@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { integral2Rectangular } from './iterated'
+import { integral2DiskPolar, integral2Rectangular } from './iterated'
 
 function expectRelativeError(value: number, exact: number, tolerance: number) {
   const relativeError = Math.abs(value - exact) / Math.abs(exact)
@@ -67,5 +67,25 @@ describe('integral2Rectangular', () => {
     expect(() =>
       integral2Rectangular(() => Number.MAX_VALUE, [0, 2], [0, 2], 2),
     ).toThrow(RangeError)
+  })
+})
+
+describe('integral2DiskPolar', () => {
+  it('reproduz A4: integral de x²+y² no disco unitário é π/2', () => {
+    const value = integral2DiskPolar((x, y) => x ** 2 + y ** 2, 1, 4)
+
+    expectRelativeError(value, Math.PI / 2, 1e-12)
+  })
+
+  it('escala com a quarta potência do raio para o momento radial de x²+y²', () => {
+    const value = integral2DiskPolar((x, y) => x ** 2 + y ** 2, 2, 4)
+
+    expectRelativeError(value, 8 * Math.PI, 1e-12)
+  })
+
+  it('rejeita raios nulos, negativos ou não finitos', () => {
+    expect(() => integral2DiskPolar(() => 1, 0)).toThrow(RangeError)
+    expect(() => integral2DiskPolar(() => 1, -1)).toThrow(RangeError)
+    expect(() => integral2DiskPolar(() => 1, Infinity)).toThrow(RangeError)
   })
 })

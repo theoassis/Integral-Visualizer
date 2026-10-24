@@ -10,7 +10,7 @@
 - **Última sessão:** 2026-10-24 — convergência, sólido assinado, presets e cobertura do caso A4.
 - **Estado dos testes:** `pnpm exec vitest run` — 131 testes passando (15 arquivos, 0 falhas).
 - **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, 131 testes, lint e formatação passaram após corrigir `ignoreDeprecations` em `tsconfig.app.json` para `5.0`, compatível com TypeScript 5.9.3. O bundle continua acima do aviso de 500 kB do Vite (1.531,98 kB; Worker 683,00 kB). A inspeção visual no navegador não foi possível porque o uso local de browser está desativado nas configurações de Work.
-- **Último commit:** `fix: align TypeScript deprecation setting`.
+- **Último commit:** `fix: remove deprecated TypeScript baseUrl`.
 
 ## Painel de fases
 
@@ -453,3 +453,11 @@ Marque conforme forem implementados **e passando**.
 - **Feito:** `tsconfig.app.json` usava `ignoreDeprecations: "6.0"` apesar do TypeScript 5.9.3; alterado para `"5.0"`, restabelecendo compatibilidade sem alterar a lógica da aplicação.
 - **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm exec vitest run` (131 testes), `pnpm lint`, `pnpm format:check` e `git diff --check` passaram.
 - **Próximo passo:** commit e push da correção; a Fase 2 ainda aguarda aprovação matemática.
+
+### Sessão 18
+
+- **Data:** 2026-10-24
+- **Tarefa:** remover aviso de depreciação do `baseUrl` indicado nas capturas do VS Code.
+- **Feito:** removido `baseUrl` de `tsconfig.app.json`; o alias `@/*` agora aponta explicitamente para `./src/*`. O Vite mantém o alias equivalente para a resolução em runtime.
+- **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm exec vitest run` (131 testes), `pnpm lint`, `pnpm format:check` e `git diff --check` passaram.
+- **Próximo passo:** commit e push; a F2-T5 permanece no commit anterior e a Fase 2 aguarda aprovação matemática.

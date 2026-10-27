@@ -62,14 +62,18 @@ export default function RiemannPanel({
   const [ySubdivisions, setYSubdivisions] = useState(24)
 
   return (
-    <section className="riemann-panel" aria-labelledby="riemann-heading">
+    <section
+      id="riemann-panel"
+      className="riemann-panel"
+      aria-labelledby="riemann-heading"
+    >
       <div className="riemann-panel-heading">
         <div>
           <span className="card-label">INTEGRAÇÃO NUMÉRICA</span>
           <h2 id="riemann-heading">Somas de Riemann</h2>
         </div>
         <span className="riemann-panel-symbol" aria-hidden="true">
-          ∑ f(x*, y*) ΔA
+          ∬<sub>D</sub> f(x, y) dA ≈ ∑ f(x*, y*) ΔA
         </span>
       </div>
 
@@ -149,6 +153,7 @@ export default function RiemannPanel({
       </div>
 
       <button
+        id="riemann-calculate"
         className="riemann-calculate-button"
         type="button"
         disabled={!workerReady || surfaceCalculating || integralCalculating}

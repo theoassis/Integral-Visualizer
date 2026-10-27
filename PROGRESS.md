@@ -5,27 +5,27 @@
 
 ## Resumo atual
 
-- **Fase atual:** 2 — Integral dupla retangular
-- **Tarefa atual:** F2-T5 concluída; Fase 2 aguarda o portão de revisão matemática do usuário.
-- **Última sessão:** 2026-10-24 — convergência, sólido assinado, presets e cobertura do caso A4.
-- **Estado dos testes:** `pnpm exec vitest run` — 131 testes passando (15 arquivos, 0 falhas).
-- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, 131 testes, lint e formatação passaram após corrigir `ignoreDeprecations` em `tsconfig.app.json` para `5.0`, compatível com TypeScript 5.9.3. O bundle continua acima do aviso de 500 kB do Vite (1.531,98 kB; Worker 683,00 kB). A inspeção visual no navegador não foi possível porque o uso local de browser está desativado nas configurações de Work.
-- **Último commit:** `fix: remove deprecated TypeScript baseUrl`.
+- **Fase atual:** 3 — Regiões gerais e polar (MVP)
+- **Tarefa atual:** F3-T1 concluída; F3-T2 é a próxima.
+- **Última sessão:** 2026-10-26 — atalho de integral na calculadora e núcleo de regiões tipo I/II.
+- **Estado dos testes:** `pnpm exec vitest run` — 136 testes passando (16 arquivos, 0 falhas), após F3-T1.
+- **Estado do build/tipos:** verificações completas desta sessão registradas na Sessão 19 abaixo. O bundle segue acima do aviso de 500 kB do Vite; a inspeção WebGL no navegador continua indisponível neste ambiente.
+- **Último commit:** a criar nesta sessão.
 
 ## Painel de fases
 
-| Fase | Nome                              | Status              | Portão de revisão matemática                          |
-| ---- | --------------------------------- | ------------------- | ----------------------------------------------------- |
-| 0    | Preparação                        | ✅ concluída        | ✅ aprovado pelo usuário ao solicitar a Fase 1        |
-| 1    | Fundação e superfícies            | ✅ concluída        | ✅ aprovada explicitamente pelo usuário em 2026-10-23 |
-| 2    | Integral dupla retangular         | 🟨 revisão pendente | 🟨 aguardando aprovação do relatório matemático       |
-| 3    | Regiões gerais e polar (**MVP**)  | ⬜                  | ⬜                                                    |
-| 4    | Cálculo diferencial multivariável | ⬜                  | ⬜                                                    |
-| 5    | Integral tripla                   | ⬜                  | ⬜                                                    |
-| 6    | Equações diferenciais             | ⬜                  | ⬜                                                    |
-| 7    | Plataforma e polimento            | ⬜                  | ⬜                                                    |
-| 8    | Desempenho e WASM                 | ⬜                  | ⬜                                                    |
-| 9    | Extras                            | ⬜                  | —                                                     |
+| Fase | Nome                              | Status          | Portão de revisão matemática                                                                                    |
+| ---- | --------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
+| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1                                                                  |
+| 1    | Fundação e superfícies            | ✅ concluída    | ✅ aprovada explicitamente pelo usuário em 2026-10-23                                                           |
+| 2    | Integral dupla retangular         | ✅ concluída    | ✅ usuário solicitou explicitamente avanço à Fase 3 em 2026-10-26; relatório formal separado não foi registrado |
+| 3    | Regiões gerais e polar (**MVP**)  | 🟨 em andamento | ⬜                                                                                                              |
+| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                                                                                              |
+| 5    | Integral tripla                   | ⬜              | ⬜                                                                                                              |
+| 6    | Equações diferenciais             | ⬜              | ⬜                                                                                                              |
+| 7    | Plataforma e polimento            | ⬜              | ⬜                                                                                                              |
+| 8    | Desempenho e WASM                 | ⬜              | ⬜                                                                                                              |
+| 9    | Extras                            | ⬜              | —                                                                                                               |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprovada na revisão
 
@@ -47,6 +47,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F2-T3 | Regras de soma de Riemann retangulares                     | ✅     | Regras esquerda/direita/médio/inferior/superior/aleatória; refinamento n→2n com estimativa; convergência de ordem 1 e 2 testada.                                                                       |
 | F2-T4 | Visualização de prismas e painel de resultados             | ✅     | `InstancedMesh`, controles de 2–200 em x/y, inspeção da amostra/contribuição por hover; resultados e referência numérica Gauss–Legendre 64×64. 118 testes passam; WebGL não inspecionado nesta sessão. |
 | F2-T5 | Convergência, sólido e exemplos                            | ✅     | Gráfico log-log e inclinação estimada; sólido assinado da malha; quatro presets; A4 no disco unitário via coordenadas polares; documentação e roteiro em `docs/f2-t5-riemann.md`.                      |
+| F3-T1 | Regiões tipo I/II e integração iterada                     | ✅     | Núcleo com limites externos/internos, `contains`, consulta de limites e quadratura de Gauss; A5 = 1/3, A6 = 3/10 e equivalência do triângulo nas duas ordens cobertos por testes.                      |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -125,7 +126,7 @@ Marque conforme forem implementados **e passando**.
 
 ## Ideias para o backlog (não implementar agora)
 
-- Editor científico: ampliar o teclado virtual para a lista branca e permitir limites de domínio editáveis na F1; preservar entrada explícita e segurança do parser. O teclado atual cria somente expressões escalares `z=f(x,y)`; operadores de derivada e integral só devem aparecer como ferramentas funcionais quando os módulos correspondentes estiverem prontos.
+- Editor científico: ampliar o teclado virtual para a lista branca e permitir limites de domínio editáveis na F1; preservar entrada explícita e segurança do parser. O teclado de superfície compõe `z=f(x,y)`; a tecla `∬` navega para a ferramenta F2 de integração dupla. Outras operações devem aparecer como ferramentas quando seus módulos estiverem prontos.
 - Resolução passo a passo para qualquer expressão: avançar por etapas verificáveis — derivadas e Hessiana na Fase 4; integrais duplas nas Fases 2–3; triplas na Fase 5; EDOs na Fase 6; integrais de linha/superfície e teoremas na Fase 9. Um tutor neural futuro pode explicar resultados, mas cada transformação e valor deve ser calculado/validado por algoritmos determinísticos ou CAS. Não usar texto gerado por rede como prova matemática.
 
 ## Log de sessões
@@ -461,3 +462,14 @@ Marque conforme forem implementados **e passando**.
 - **Feito:** removido `baseUrl` de `tsconfig.app.json`; o alias `@/*` agora aponta explicitamente para `./src/*`. O Vite mantém o alias equivalente para a resolução em runtime.
 - **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm exec vitest run` (131 testes), `pnpm lint`, `pnpm format:check` e `git diff --check` passaram.
 - **Próximo passo:** commit e push; a F2-T5 permanece no commit anterior e a Fase 2 aguarda aprovação matemática.
+
+### Sessão 19
+
+- **Data:** 2026-10-26
+- **Tarefa:** corrigir a ausência de integrais na calculadora e avançar para F3-T1.
+- **Avanço da fase:** o usuário pediu explicitamente para seguir para a Fase 3. A Fase 2 foi liberada para avanço por essa instrução; não foi apresentado um relatório formal separado de revisão matemática nesta sessão.
+- **Feito:** a categoria de funções do teclado ganhou a tecla `∬`, que leva à ferramenta de integração dupla e foca a ação de cálculo. O painel identifica a operação como `∬_D f(x,y) dA ≈ Σ f(x*,y*) ΔA`; o símbolo não é inserido no parser de superfícies.
+- **F3-T1:** criadas regiões tipo I e tipo II com limites externos e internos, teste de pertencimento, consulta de limites e integral iterada com quadratura de Gauss–Legendre. A5: `∫₀¹∫₀ˣ x dy dx = ∫₀¹ x² dx = 1/3`. A6: `∫₀¹∫ₓ²^√x (x+y) dy dx = 3/10`. O triângulo de A5 também foi integrado em tipo II e produziu `1/3`.
+- **Verificações:** registradas após executar os comandos finais abaixo.
+- **Não verificado:** interação visual do foco/rolagem no browser, bloqueada pela configuração local já documentada; a interface de edição/desenho de regiões será tratada em F3-T2.
+- **Próximo passo:** F3-T2 — desenhar a região no plano e restringir os prismas à região.

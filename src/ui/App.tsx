@@ -107,6 +107,7 @@ const CALCULATOR_KEYS: Record<CalculatorTab, CalculatorKey[]> = {
     { label: 'pow', token: 'pow(,)', kind: 'template', cursorOffset: 4 },
     { label: 'atan2', token: 'atan2(,)', kind: 'template', cursorOffset: 6 },
     { label: 'floor', token: 'floor()', kind: 'template', cursorOffset: 6 },
+    { label: '∬', token: 'openIntegralTool', kind: 'submit' },
     { label: '⌫', token: 'backspace', kind: 'utility' },
     { label: 'C', token: 'clear', kind: 'utility' },
   ],
@@ -537,6 +538,11 @@ export default function App() {
 
   const insertCalculatorToken = (key: CalculatorKey) => {
     const { token, cursorOffset, kind } = key
+    if (token === 'openIntegralTool') {
+      document.getElementById('riemann-panel')?.scrollIntoView({ behavior: 'smooth' })
+      requestAnimationFrame(() => document.getElementById('riemann-calculate')?.focus())
+      return
+    }
     const input = formulaInputRef.current
     const start = input?.selectionStart ?? formulaDraft.length
     const end = input?.selectionEnd ?? formulaDraft.length
@@ -730,7 +736,9 @@ export default function App() {
                                   ? 'Mover cursor à direita'
                                   : key.token === 'enter'
                                     ? 'Aplicar expressão'
-                                    : `Inserir ${key.label}`
+                                    : key.token === 'openIntegralTool'
+                                      ? 'Abrir ferramenta de integral dupla'
+                                      : `Inserir ${key.label}`
                         }
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => insertCalculatorToken(key)}
@@ -740,8 +748,8 @@ export default function App() {
                     ))}
                   </div>
                   <p className="calculator-keyboard-hint">
-                    Modelos deixam o cursor no espaço a preencher; setas navegam e
-                    Aplicar atualiza a superfície.
+                    Modelos deixam o cursor no espaço a preencher. A tecla ∬ abre a
+                    ferramenta de integração dupla.
                   </p>
                 </div>
                 <fieldset className="domain-controls">

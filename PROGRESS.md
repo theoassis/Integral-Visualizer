@@ -11,7 +11,7 @@
 - **Última sessão:** 2026-10-26 — calculadora de integrais duplas, prévia da região e prismas com máscara de área.
 - **Estado dos testes:** `pnpm exec vitest run` — 149 testes passando (18 arquivos, 0 falhas).
 - **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram; chunk inicial 1.541,81 kB (421,17 kB gzip) e Worker 686,92 kB. Testes: 149/149.
-- **Último commit:** a registrar após fechar esta sessão.
+- **Último commit de implementação:** `4269767 feat: add double integral region calculator` (enviado a `origin/main`).
 
 ## Painel de fases
 
@@ -494,4 +494,5 @@ Marque conforme forem implementados **e passando**.
 - **Revisão de `PROGRESS.md`:** alinhada a numeração F2-T5/F2-T6 ao plano, A5/A6 marcados como implementados e passando, pendência matemática da Fase 2 mantida sem alegar aprovação, status e próximos passos revisados, notas locais obsoletas de TypeScript removidas e caminho de `PROMPTS_FASES.md` corrigido em `CLAUDE.md`. O adendo da calculadora também foi registrado em `PROMPTS_FASES.md`.
 - **Verificações:** `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `git diff --check` e `pnpm build` passaram; `pnpm exec vitest run` passou com 149 testes em 18 arquivos. Build: chunk inicial 1.541,81 kB (421,17 kB gzip) e Worker 686,92 kB; Vite emitiu aviso para chunk acima de 500 kB.
 - **Não verificado:** prévia e alinhamento finais no navegador; o pedido de acesso do controle de computador expirou. As curvas são validadas em 129 pontos, logo cruzamentos entre amostras ainda podem escapar; a quadratura Gauss 64×64 e a ponderação 8×8 são aproximações, não certificações.
+- **Commit/push:** `4269767 feat: add double integral region calculator`, enviado a `origin/main`.
 - **Próximo passo:** F3-T3 — região polar com Jacobiano `r`, animação de setores e testes A4/A7/A8/A9.

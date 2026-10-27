@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { RiemannRule } from '../core/quad/riemann'
 import type { RiemannCalculationResult } from '../workers/riemannCalculation'
 import { RIEMANN_EXAMPLES, type RiemannExample } from './riemannExamples'
+import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 
 export type RiemannSceneMode = 'surface' | 'prisms' | 'solid' | 'both'
 
@@ -15,6 +16,7 @@ interface RiemannPanelProps {
   readonly omittedPrisms: number
   readonly sceneMode: RiemannSceneMode
   readonly exactValue: number | null
+  readonly region: RegionExpressionDefinition | null
   readonly onCalculate: (
     rule: RiemannRule,
     xSubdivisions: number,
@@ -53,6 +55,7 @@ export default function RiemannPanel({
   omittedPrisms,
   sceneMode,
   exactValue,
+  region,
   onCalculate,
   onSceneModeChange,
   onExampleSelect,
@@ -73,7 +76,19 @@ export default function RiemannPanel({
           <h2 id="riemann-heading">Somas de Riemann</h2>
         </div>
         <span className="riemann-panel-symbol" aria-hidden="true">
-          ∬<sub>D</sub> f(x, y) dA ≈ ∑ f(x*, y*) ΔA
+          {region?.kind === 'typeI' ? (
+            <>
+              ∫∫<sub>tipo I</sub> f dA
+            </>
+          ) : region?.kind === 'typeII' ? (
+            <>
+              ∫∫<sub>tipo II</sub> f dA
+            </>
+          ) : (
+            <>
+              ∬<sub>D</sub> f(x, y) dA ≈ ∑ f(x*, y*) ΔA
+            </>
+          )}
         </span>
       </div>
 
@@ -108,7 +123,8 @@ export default function RiemannPanel({
         Regra de amostragem
         <select
           id="riemann-rule"
-          value={rule}
+          value={region ? 'midpoint' : rule}
+          disabled={region !== null}
           onChange={(event) => setRule(event.currentTarget.value as RiemannRule)}
         >
           {RULES.map((item) => (
@@ -118,6 +134,13 @@ export default function RiemannPanel({
           ))}
         </select>
       </label>
+      {region && (
+        <p className="riemann-help" role="status">
+          {region.samplingMode === 'center'
+            ? 'Modo “centro dentro”: cada célula conta inteira somente se seu centro estiver na região. As células de fronteira podem causar erro visível.'
+            : 'Modo ponderado: cada célula usa a fração coberta estimada por subamostragem 8×8. É uma aproximação geométrica da fronteira.'}
+        </p>
+      )}
 
       <div className="riemann-subdivision-controls">
         <label className="riemann-range-field" htmlFor="riemann-x-count">
@@ -187,8 +210,8 @@ export default function RiemannPanel({
             >
               <option value="surface">Superfície</option>
               <option value="prisms">Superfície + prismas</option>
-              <option value="solid">Superfície + sólido</option>
-              <option value="both">Superfície + prismas + sólido</option>
+              {!region && <option value="solid">Superfície + sólido</option>}
+              {!region && <option value="both">Superfície + prismas + sólido</option>}
             </select>
           </label>
           {omittedPrisms > 0 && (
@@ -266,6 +289,13 @@ export default function RiemannPanel({
             nem certificado. O sólido é construído da malha refinada e representa o
             volume assinado entre a superfície e z = 0; é uma aproximação geométrica.
           </p>
+          {region && (
+            <p className="riemann-disclaimer">
+              Na cena de região, cada prisma parcial usa uma base quadrada equivalente à
+              fração de área estimada; ela mostra a contribuição aproximada, não o
+              contorno exato da fronteira dentro da célula.
+            </p>
+          )}
         </>
       )}
     </section>

@@ -43,6 +43,8 @@ export interface RiemannGridData {
   /** Actual sample coordinates, kept separately from each prism's cell center. */
   readonly sampleX: Float64Array
   readonly sampleY: Float64Array
+  /** Optional per-cell fraction used by non-rectangular-region sampling. */
+  readonly cellFractions?: Float32Array
 }
 
 const MAX_RIEMANN_CELLS = 1_000_000

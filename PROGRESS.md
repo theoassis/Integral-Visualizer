@@ -2,34 +2,35 @@
 
 > A IA atualiza este arquivo ao FINAL de toda sessão. É a memória de curto prazo do projeto.
 > Regra: escreva o que aconteceu de verdade (com resultados reais de testes), não o que se pretendia.
+> As sessões antigas registram o estado na data em que foram escritas; o resumo, o painel de fases e a matriz abaixo são a fonte atual.
 
 ## Resumo atual
 
-- **Fase atual:** 3 — Regiões gerais e polar (MVP)
-- **Tarefa atual:** F3-T1 concluída; F3-T2 é a próxima.
-- **Última sessão:** 2026-10-26 — atalho de integral na calculadora e núcleo de regiões tipo I/II.
-- **Estado dos testes:** `pnpm exec vitest run` — 136 testes passando (16 arquivos, 0 falhas), após F3-T1.
-- **Estado do build/tipos:** verificações completas desta sessão registradas na Sessão 19 abaixo. O bundle segue acima do aviso de 500 kB do Vite; a inspeção WebGL no navegador continua indisponível neste ambiente.
-- **Último commit:** a criar nesta sessão.
+- **Fase atual:** 3 — Regiões gerais e polares (MVP)
+- **Tarefa atual:** F3-T2 concluída; F3-T3 (regiões polares e Jacobiano) é a próxima.
+- **Última sessão:** 2026-10-26 — calculadora de integrais duplas, prévia da região e prismas com máscara de área.
+- **Estado dos testes:** `pnpm exec vitest run` — 149 testes passando (18 arquivos, 0 falhas).
+- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram; chunk inicial 1.541,81 kB (421,17 kB gzip) e Worker 686,92 kB. Testes: 149/149.
+- **Último commit:** a registrar após fechar esta sessão.
 
 ## Painel de fases
 
-| Fase | Nome                              | Status          | Portão de revisão matemática                                                                                    |
-| ---- | --------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------- |
-| 0    | Preparação                        | ✅ concluída    | ✅ aprovado pelo usuário ao solicitar a Fase 1                                                                  |
-| 1    | Fundação e superfícies            | ✅ concluída    | ✅ aprovada explicitamente pelo usuário em 2026-10-23                                                           |
-| 2    | Integral dupla retangular         | ✅ concluída    | ✅ usuário solicitou explicitamente avanço à Fase 3 em 2026-10-26; relatório formal separado não foi registrado |
-| 3    | Regiões gerais e polar (**MVP**)  | 🟨 em andamento | ⬜                                                                                                              |
-| 4    | Cálculo diferencial multivariável | ⬜              | ⬜                                                                                                              |
-| 5    | Integral tripla                   | ⬜              | ⬜                                                                                                              |
-| 6    | Equações diferenciais             | ⬜              | ⬜                                                                                                              |
-| 7    | Plataforma e polimento            | ⬜              | ⬜                                                                                                              |
-| 8    | Desempenho e WASM                 | ⬜              | ⬜                                                                                                              |
-| 9    | Extras                            | ⬜              | —                                                                                                               |
+| Fase | Nome                              | Status                   | Portão de revisão matemática                                                                    |
+| ---- | --------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
+| 0    | Preparação                        | ✅ concluída             | ✅ aprovado pelo usuário ao solicitar a Fase 1                                                  |
+| 1    | Fundação e superfícies            | ✅ concluída             | ✅ aprovada explicitamente pelo usuário em 2026-10-23                                           |
+| 2    | Integral dupla retangular         | ✅ implementação fechada | ⚠️ usuário solicitou avanço em 2026-10-26; revisão matemática formal da fase não foi registrada |
+| 3    | Regiões gerais e polar (**MVP**)  | 🟨 em andamento          | ⬜                                                                                              |
+| 4    | Cálculo diferencial multivariável | ⬜                       | ⬜                                                                                              |
+| 5    | Integral tripla                   | ⬜                       | ⬜                                                                                              |
+| 6    | Equações diferenciais             | ⬜                       | ⬜                                                                                              |
+| 7    | Plataforma e polimento            | ⬜                       | ⬜                                                                                              |
+| 8    | Desempenho e WASM                 | ⬜                       | ⬜                                                                                              |
+| 9    | Extras                            | ⬜                       | —                                                                                               |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprovada na revisão
 
-## Tarefas da fase atual
+## Matriz de tarefas e evidências
 
 | ID    | Tarefa                                                     | Status | Evidência (testes/capturas)                                                                                                                                                                            |
 | ----- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -46,8 +47,15 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F2-T2 | Integral dupla iterada em retângulos                       | ✅     | Produto tensorial de Gauss–Legendre com limites e orientação configuráveis; A1–A3 verificados contra os valores exatos.                                                                                |
 | F2-T3 | Regras de soma de Riemann retangulares                     | ✅     | Regras esquerda/direita/médio/inferior/superior/aleatória; refinamento n→2n com estimativa; convergência de ordem 1 e 2 testada.                                                                       |
 | F2-T4 | Visualização de prismas e painel de resultados             | ✅     | `InstancedMesh`, controles de 2–200 em x/y, inspeção da amostra/contribuição por hover; resultados e referência numérica Gauss–Legendre 64×64. 118 testes passam; WebGL não inspecionado nesta sessão. |
-| F2-T5 | Convergência, sólido e exemplos                            | ✅     | Gráfico log-log e inclinação estimada; sólido assinado da malha; quatro presets; A4 no disco unitário via coordenadas polares; documentação e roteiro em `docs/f2-t5-riemann.md`.                      |
+| F2-T5 | Painel de resultados da soma                               | ✅     | Soma S, referência de Gauss–Legendre, erros, tempo, estabilidade da referência e casos de exemplo disponíveis no painel F2.                                                                            |
+| F2-T6 | Convergência, sólido e exemplos                            | ✅     | Gráfico log-log e inclinação estimada; sólido assinado da malha; quatro presets; A4 no disco unitário via coordenadas polares; documentação em `docs/f2-t5-riemann.md`; commit `b6578a2`.              |
 | F3-T1 | Regiões tipo I/II e integração iterada                     | ✅     | Núcleo com limites externos/internos, `contains`, consulta de limites e quadratura de Gauss; A5 = 1/3, A6 = 3/10 e equivalência do triângulo nas duas ordens cobertos por testes.                      |
+| F3-T2 | Prévia da região e prismas restritos                       | ✅     | Calculadora ∬ com retângulo/tipo I/tipo II, prévia 2D, modos “centro dentro” e área ponderada 8×8; prismas fora da região omitidos e bases parciais escaladas pela fração estimada.                    |
+| F3-T3 | Região polar e Jacobiano r                                 | ⬜     | Próxima tarefa.                                                                                                                                                                                        |
+| F3-T4 | Regiões por desigualdades                                  | ⬜     | Pendente: varredura/bissecção e fallback Monte Carlo.                                                                                                                                                  |
+| F3-T5 | Mudança da ordem de integração                             | ⬜     | Pendente: conversão I↔II com validação numérica.                                                                                                                                                       |
+| F3-T6 | Grandezas físicas sobre regiões                            | ⬜     | Pendente: massa, centro de massa, momentos, valor médio e área de superfície.                                                                                                                          |
+| F3-T7 | Exibição da integral iterada em notação matemática         | ⬜     | A calculadora mostra limites e expressão em notação textual; a montagem em LaTeX com limites substituídos continua pendente como tarefa formal.                                                        |
 
 ## Casos de teste de referência (Seção 14.2 do plano)
 
@@ -59,8 +67,8 @@ Marque conforme forem implementados **e passando**.
 | A2  | ∬ (x²+y²) dA em [0,1]² = 2/3                         | ✅           | ✅       |
 | A3  | ∬ sen x sen y em [0,π]² = 4                          | ✅           | ✅       |
 | A4  | ∬ (x²+y²) no disco unitário = π/2                    | ✅           | ✅       |
-| A5  | ∬ x dA no triângulo 0≤y≤x≤1 = 1/3                    | ⬜           | ⬜       |
-| A6  | ∬ (x+y) entre y=x² e y=√x = 3/10                     | ⬜           | ⬜       |
+| A5  | ∬ x dA no triângulo 0≤y≤x≤1 = 1/3                    | ✅           | ✅       |
+| A6  | ∬ (x+y) entre y=x² e y=√x = 3/10                     | ✅           | ✅       |
 | A7  | Volume sob z=1−x²−y² no disco unitário = π/2         | ⬜           | ⬜       |
 | A8  | ∬ e^(−(x²+y²)) no disco de raio 2 = π(1−e⁻⁴)         | ⬜           | ⬜       |
 | A9  | ∬ x dA no disco unitário = 0                         | ⬜           | ⬜       |
@@ -84,9 +92,10 @@ Marque conforme forem implementados **e passando**.
 
 ## Pendências de revisão matemática `[REVISAR-MATEMATICA]`
 
-| #   | Data       | Dúvida / escolha                                                                                                                                                                                                                                                                                                        | Contexto (fórmula, arquivo)                         | Resposta do revisor                                             |
-| --- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| 1   | 2026-10-15 | Mínimos e máximos observados em uma grade finita não certificam somas inferior/superior nem garantem que cerquem a integral exata. Até existir um método certificado, rotular como estimativas amostradas e explicar essa limitação; só afirmar `inferior ≤ exato ≤ superior` quando a implementação provar os limites. | Plano, seção 10.3; tarefas F2-T3 e guia de revisão. | Decisão segura registrada; aguarda revisão do usuário na Fase 2 |
+| #   | Data       | Dúvida / escolha                                                                                                                                                                                                                                                                                                        | Contexto (fórmula, arquivo)                                                           | Resposta do revisor                                                                                                                                                        |
+| --- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 2026-10-15 | Mínimos e máximos observados em uma grade finita não certificam somas inferior/superior nem garantem que cerquem a integral exata. Até existir um método certificado, rotular como estimativas amostradas e explicar essa limitação; só afirmar `inferior ≤ exato ≤ superior` quando a implementação provar os limites. | Plano, seção 10.3; tarefas F2-T3 e guia de revisão.                                   | A interface informa que são estimativas amostradas e sem garantia. A revisão formal da Fase 2 não foi registrada; o usuário autorizou avançar para a Fase 3 em 2026-10-26. |
+| 2   | 2026-10-26 | A F3-T2 aceita limites de curva após checagem em 129 pontos e usa subamostragem 8×8 no modo ponderado. Uma curva pode cruzar ou sair da janela entre pontos de checagem; a fração de área e a referência numérica não são certificadas.                                                                                 | `src/ui/regionCalculator.ts`, `src/core/regions/riemannRegion.ts`, Worker de Riemann. | Limitação explícita na UI e no progresso; testar mais funções e revisar comportamento antes do fechamento matemático da Fase 3.                                            |
 
 ## Ambiguidades e riscos encontrados na leitura inicial
 
@@ -94,8 +103,8 @@ Marque conforme forem implementados **e passando**.
 - **Escopo da Fase 2:** A4 é validado no núcleo por `integral2DiskPolar` com Jacobiano `r`; editor de regiões, geometria polar e UI seguem na Fase 3.
 - **Rótulos “inferior/superior”:** mantê-los como estimativas amostradas sem garantia até que intervalos certificados sejam implementados; atualizar o critério em `PROMPTS_FASES.md` e `REVISAO_MATEMATICA.md`.
 - **Compatibilidade de ferramentas:** TypeScript 7.0.2 não atendia ao peer range do `typescript-eslint` 8.71.2. A base usa TypeScript 5.9.3, dentro do peer range publicado.
-- **Arquivos do roteiro:** `CLAUDE.md` e `REVISAO_MATEMATICA.md` citam `docs/PROMPTS_FASES.md`, mas esse arquivo não existe no checkout atual; o plano oficial em PDF foi usado para definir F2-T1.
-- **Alteração local preservada:** `tsconfig.app.json` já estava modificado antes desta sessão (`ignoreDeprecations: "6.0"`); foi mantido fora desta tarefa.
+- **Caminho do roteiro:** corrigido em `CLAUDE.md`; `PROMPTS_FASES.md` fica na raiz e o guia matemático em `docs/REVISAO_MATEMATICA.md`.
+- **TypeScript:** a incompatibilidade histórica `ignoreDeprecations: "6.0"` foi corrigida para `5.0` e o `baseUrl` deprecado removido nos commits `5704e33` e `baedd7f`; não é uma alteração local pendente.
 
 ## Decisões tomadas (ADR resumido)
 
@@ -122,11 +131,13 @@ Marque conforme forem implementados **e passando**.
 
 ## Problemas conhecidos / dívida técnica
 
-- O build mais recente gera um chunk inicial de 1.511,40 kB minificado (412,78 kB gzip), além do Worker de 676,71 kB. Medir e dividir no trabalho de desempenho, sem antecipar otimizações à F1-T3.
+- O build da Sessão 20 gerou chunk inicial de 1.541,81 kB (421,17 kB gzip) e Worker de 686,92 kB. Vite avisou que o chunk inicial supera 500 kB; planejar a divisão na Fase 8.
+- Na F3-T2, a janela externa é fornecida pelo usuário; as curvas são verificadas por amostragem em 129 posições, não por prova contínua. O modo ponderado usa subamostragem determinística 8×8; a base quadrada de cada prisma parcial representa a área estimada, não o contorno exato da célula recortada.
+- A prévia React/Three.js e o foco após o botão de preparação não foram verificados visualmente nesta sessão porque o controle do navegador expirou.
 
 ## Ideias para o backlog (não implementar agora)
 
-- Editor científico: ampliar o teclado virtual para a lista branca e permitir limites de domínio editáveis na F1; preservar entrada explícita e segurança do parser. O teclado de superfície compõe `z=f(x,y)`; a tecla `∬` navega para a ferramenta F2 de integração dupla. Outras operações devem aparecer como ferramentas quando seus módulos estiverem prontos.
+- Editor científico: o editor de superfície compõe `z=f(x,y)`; a aba `∬` agora monta uma integral dupla retangular ou tipo I/II e inicia os controles de Riemann. Derivadas, triplas, linha e superfície permanecem no backlog até suas fases.
 - Resolução passo a passo para qualquer expressão: avançar por etapas verificáveis — derivadas e Hessiana na Fase 4; integrais duplas nas Fases 2–3; triplas na Fase 5; EDOs na Fase 6; integrais de linha/superfície e teoremas na Fase 9. Um tutor neural futuro pode explicar resultados, mas cada transformação e valor deve ser calculado/validado por algoritmos determinísticos ou CAS. Não usar texto gerado por rede como prova matemática.
 
 ## Log de sessões
@@ -431,13 +442,12 @@ Marque conforme forem implementados **e passando**.
 ### Sessão 16
 
 - **Data:** 2026-10-24
-- **Tarefa:** F2-T4 verificada e F2-T5 — convergência, sólido e exemplos; fechamento técnico da Fase 2.
+- **Tarefa:** fechamento técnico das F2-T4, F2-T5 e F2-T6.
 - **Feito:**
-  1. A F2-T4 está no commit `0a2fac8`. A interface oferece prismas instanciados, subdivisões independentes, hover com amostra/área/contribuição e resultados contra Gauss 64×64.
-  2. Adicionado gráfico log-log do erro em função de `n` e ajuste de ordem observada por mínimos quadrados nos logaritmos. Erros no piso de arredondamento são omitidos; a ordem não é apresentada como garantia teórica.
-  3. Adicionado sólido translúcido fechado entre a malha da superfície e `z=0`, com orientação de faces verificada para alturas positivas e negativas. Buracos por amostras inválidas não ganham paredes falsas.
-  4. Adicionado seletor de camadas (superfície, prismas, sólido, ambos), quatro presets de integrais com valores exatos e guia de uso em `docs/f2-t5-riemann.md`.
-  5. Para concluir a cobertura A1–A4 do roteiro, `integral2DiskPolar` aplica a transformação polar e Jacobiano `r`. Para A4, `∬(x²+y²)dA = ∫₀²π∫₀¹r³drdθ = π/2`; testes também verificam o raio 2 e rejeições de raio inválido.
+  1. A F2-T4 está no commit `0a2fac8`: prismas instanciados, controles n/m, inspeção de amostras e referência numérica.
+  2. A F2-T5 entrega soma, referência, erros e tempo no painel.
+  3. A F2-T6 adiciona gráfico log-log e ordem observada, sólido assinado, modos de cena e exemplos; o fechamento está no commit `b6578a2`.
+  4. Para A4, `integral2DiskPolar` aplica a transformação polar e Jacobiano `r`: `∬(x²+y²)dA = ∫₀²π∫₀¹r³drdθ = π/2`; testes também cobrem raio 2 e entradas inválidas.
 - **Verificações executadas:**
   - `pnpm exec vitest run`: 131 testes em 15 arquivos, 0 falhas.
   - `pnpm tsc --noEmit`: passou; `pnpm build`: bloqueado por `TS5103` em `tsconfig.app.json` (`ignoreDeprecations: "6.0"`).
@@ -470,6 +480,18 @@ Marque conforme forem implementados **e passando**.
 - **Avanço da fase:** o usuário pediu explicitamente para seguir para a Fase 3. A Fase 2 foi liberada para avanço por essa instrução; não foi apresentado um relatório formal separado de revisão matemática nesta sessão.
 - **Feito:** a categoria de funções do teclado ganhou a tecla `∬`, que leva à ferramenta de integração dupla e foca a ação de cálculo. O painel identifica a operação como `∬_D f(x,y) dA ≈ Σ f(x*,y*) ΔA`; o símbolo não é inserido no parser de superfícies.
 - **F3-T1:** criadas regiões tipo I e tipo II com limites externos e internos, teste de pertencimento, consulta de limites e integral iterada com quadratura de Gauss–Legendre. A5: `∫₀¹∫₀ˣ x dy dx = ∫₀¹ x² dx = 1/3`. A6: `∫₀¹∫ₓ²^√x (x+y) dy dx = 3/10`. O triângulo de A5 também foi integrado em tipo II e produziu `1/3`.
-- **Verificações:** registradas após executar os comandos finais abaixo.
+- **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram; `pnpm exec vitest run` passou com 136 testes em 16 arquivos. Build: 1.532,40 kB JS principal (418,91 kB gzip) e Worker de 683,00 kB.
 - **Não verificado:** interação visual do foco/rolagem no browser, bloqueada pela configuração local já documentada; a interface de edição/desenho de regiões será tratada em F3-T2.
-- **Próximo passo:** F3-T2 — desenhar a região no plano e restringir os prismas à região.
+- **Commit/push:** `6b70de2 feat: add type I and II region integration`, enviado a `origin/main`.
+- **Próximo passo:** F3-T2 — construtor de integral e prismas restritos à região.
+
+### Sessão 20
+
+- **Data:** 2026-10-26
+- **Tarefa:** corrigir o cabeçalho deslocado, permitir montar integrais duplas na calculadora, concluir F3-T2 e revisar o estado do projeto.
+- **Feito:** o cabeçalho do painel de Riemann quebra em coluna e limita a fórmula à largura disponível; status do app atualizado para Fase 3. A calculadora ganhou aba `∬` com integrando, janela externa, retângulo/tipo I/tipo II, limites internos funcionais, atalhos de `π` e prévia 2D. “Preparar integral no gráfico” aplica função e domínio; o painel calcula a soma e renderiza os prismas.
+- **F3-T2:** modo “centro dentro” inclui uma célula inteira só quando seu centro pertence à região. Modo ponderado estima cada fração por amostragem determinística 8×8; células externas são omitidas e bases parciais preservam a área estimada. Nas regiões, a regra fica em ponto médio e o modo de sólido retangular é ocultado.
+- **Revisão de `PROGRESS.md`:** alinhada a numeração F2-T5/F2-T6 ao plano, A5/A6 marcados como implementados e passando, pendência matemática da Fase 2 mantida sem alegar aprovação, status e próximos passos revisados, notas locais obsoletas de TypeScript removidas e caminho de `PROMPTS_FASES.md` corrigido em `CLAUDE.md`. O adendo da calculadora também foi registrado em `PROMPTS_FASES.md`.
+- **Verificações:** `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `git diff --check` e `pnpm build` passaram; `pnpm exec vitest run` passou com 149 testes em 18 arquivos. Build: chunk inicial 1.541,81 kB (421,17 kB gzip) e Worker 686,92 kB; Vite emitiu aviso para chunk acima de 500 kB.
+- **Não verificado:** prévia e alinhamento finais no navegador; o pedido de acesso do controle de computador expirou. As curvas são validadas em 129 pontos, logo cruzamentos entre amostras ainda podem escapar; a quadratura Gauss 64×64 e a ponderação 8×8 são aproximações, não certificações.
+- **Próximo passo:** F3-T3 — região polar com Jacobiano `r`, animação de setores e testes A4/A7/A8/A9.

@@ -88,4 +88,56 @@ describe('riemann calculation worker', () => {
 
     expect(first.convergence).toEqual(second.convergence)
   })
+
+  it('integra a região tipo I e conserva a máscara das células no modo centro', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: '1',
+      region: {
+        kind: 'typeI',
+        lowerExpression: '0',
+        upperExpression: 'x',
+        samplingMode: 'center',
+      },
+    })
+
+    expect(result.value).toBeCloseTo(0.75, 14)
+    expect(result.referenceValue).toBeCloseTo(0.5, 14)
+    expect([...result.grid.cellFractions!]).toEqual([1, 0, 1, 1])
+    expect(result.grid.rule).toBe('midpoint')
+  })
+
+  it('integra a mesma região triangular declarada em tipo II', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: '1',
+      region: {
+        kind: 'typeII',
+        lowerExpression: 'y',
+        upperExpression: '1',
+        samplingMode: 'center',
+      },
+    })
+
+    expect(result.referenceValue).toBeCloseTo(0.5, 14)
+    expect(result.value).toBeCloseTo(0.75, 14)
+  })
+
+  it('pondera as células parciais por subamostragem determinística', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: '1',
+      region: {
+        kind: 'typeI',
+        lowerExpression: '0',
+        upperExpression: 'x',
+        samplingMode: 'precise',
+      },
+    })
+
+    expect(result.value).toBeGreaterThan(0.5)
+    expect(result.value).toBeLessThan(0.6)
+    expect(result.referenceValue).toBeCloseTo(0.5, 14)
+    expect(result.grid.cellFractions).toHaveLength(4)
+  })
 })

@@ -42,7 +42,8 @@ export function buildRiemannColumns(
     grid.deltaY === 0 ||
     grid.values.length !== cellCount ||
     grid.sampleX.length !== cellCount ||
-    grid.sampleY.length !== cellCount
+    grid.sampleY.length !== cellCount ||
+    (grid.cellFractions !== undefined && grid.cellFractions.length !== cellCount)
   ) {
     throw new RangeError('A malha de prismas contém dimensões ou amostras inválidas.')
   }
@@ -59,6 +60,11 @@ export function buildRiemannColumns(
     ) {
       throw new RangeError('A malha de prismas contém amostras não finitas.')
     }
+    const fraction = grid.cellFractions?.[index] ?? 1
+    if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) {
+      throw new RangeError('A malha de prismas contém uma fração de área inválida.')
+    }
+    if (fraction === 0) continue
     if (Math.abs(value) > MAX_RIEMANN_VISUAL_HEIGHT) continue
     visibleIndices.push(index)
     minHeight = Math.min(minHeight, value)
@@ -92,12 +98,13 @@ export function buildRiemannColumns(
     const row = Math.floor(cellIndex / grid.ySubdivisions)
     const column = cellIndex % grid.ySubdivisions
     const value = grid.values[cellIndex]!
+    const areaFraction = grid.cellFractions?.[cellIndex] ?? 1
     const x = grid.xMin + grid.deltaX * (row + 0.5)
     const y = grid.yMin + grid.deltaY * (column + 0.5)
     position.set(x, y, value / 2)
     scale.set(
-      Math.abs(grid.deltaX) * COLUMN_GAP_RATIO,
-      Math.abs(grid.deltaY) * COLUMN_GAP_RATIO,
+      Math.abs(grid.deltaX) * COLUMN_GAP_RATIO * Math.sqrt(areaFraction),
+      Math.abs(grid.deltaY) * COLUMN_GAP_RATIO * Math.sqrt(areaFraction),
       Math.abs(value),
     )
     matrix.compose(position, rotation, scale)

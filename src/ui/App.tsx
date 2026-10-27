@@ -32,6 +32,10 @@ import MathAnalysisPanel from './MathAnalysisPanel'
 import { MathText, MFn, MVar, MathBlock } from './MathView'
 import { parseDomainBound } from './domainBound'
 import RiemannPanel from './RiemannPanel'
+import RegionPreview from './RegionPreview'
+import { prepareIntegralCalculatorDraft } from './regionCalculator'
+import type { IntegralCalculatorDraft, IntegralRegionKind } from './regionCalculator'
+import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 import type { RiemannExample } from './riemannExamples'
 import type { RiemannSceneMode } from './RiemannPanel'
 
@@ -44,7 +48,8 @@ const DEFAULT_DOMAIN_DRAFT = {
   yMax: 'pi',
 }
 type DomainField = keyof typeof DEFAULT_DOMAIN_DRAFT
-type CalculatorTab = '123' | 'f(x)' | 'ABC'
+type CalculatorTab = '123' | 'f(x)' | '∬' | 'ABC'
+type IntegralBoundField = 'xMin' | 'xMax' | 'yMin' | 'yMax'
 type CalculatorKey = {
   label: string
   token: string
@@ -52,7 +57,7 @@ type CalculatorKey = {
     'template' | 'utility' | 'operation' | 'navigation' | 'navigation-start' | 'submit'
   cursorOffset?: number
 }
-const CALCULATOR_TABS: CalculatorTab[] = ['123', 'f(x)', 'ABC']
+const CALCULATOR_TABS: CalculatorTab[] = ['123', 'f(x)', '∬', 'ABC']
 const CALCULATOR_KEYS: Record<CalculatorTab, CalculatorKey[]> = {
   '123': [
     { label: 'x', token: 'x' },
@@ -107,13 +112,13 @@ const CALCULATOR_KEYS: Record<CalculatorTab, CalculatorKey[]> = {
     { label: 'pow', token: 'pow(,)', kind: 'template', cursorOffset: 4 },
     { label: 'atan2', token: 'atan2(,)', kind: 'template', cursorOffset: 6 },
     { label: 'floor', token: 'floor()', kind: 'template', cursorOffset: 6 },
-    { label: '∬', token: 'openIntegralTool', kind: 'submit' },
     { label: '⌫', token: 'backspace', kind: 'utility' },
     { label: 'C', token: 'clear', kind: 'utility' },
   ],
   ABC: 'abcdefghijklmnopqrstuvwxyz'
     .split('')
     .map((letter) => ({ label: letter, token: letter })),
+  '∬': [],
 }
 /*
  * Keyboard tokens deliberately match the safe expression parser's whitelist.
@@ -151,6 +156,23 @@ export default function App() {
   const [formulaDraft, setFormulaDraft] = useState(DEFAULT_EXPRESSION)
   const [formulaEditing, setFormulaEditing] = useState(false)
   const [calculatorTab, setCalculatorTab] = useState<CalculatorTab>('123')
+  const [integralDraft, setIntegralDraft] = useState<IntegralCalculatorDraft>({
+    expression: DEFAULT_EXPRESSION,
+    kind: 'rectangle',
+    xMin: '-pi',
+    xMax: 'pi',
+    yMin: '-pi',
+    yMax: 'pi',
+    lowerExpression: '0',
+    upperExpression: 'x',
+    samplingMode: 'center',
+  })
+  const [integralDraftError, setIntegralDraftError] = useState<string | null>(null)
+  const [integralBoundField, setIntegralBoundField] =
+    useState<IntegralBoundField>('xMin')
+  const [riemannRegion, setRiemannRegion] = useState<RegionExpressionDefinition | null>(
+    null,
+  )
   const [domainDraft, setDomainDraft] = useState(DEFAULT_DOMAIN_DRAFT)
   const [domainField, setDomainField] = useState<DomainField>('xMin')
   const [appliedExpression, setAppliedExpression] = useState<string | null>(null)
@@ -406,6 +428,7 @@ export default function App() {
         rule,
         xSubdivisions,
         ySubdivisions,
+        ...(riemannRegion ? { region: riemannRegion } : {}),
       }
 
       void worker.calculateRiemann(request).then(
@@ -426,7 +449,7 @@ export default function App() {
         },
       )
     },
-    [appliedExpression],
+    [appliedExpression, riemannRegion],
   )
 
   const handleRiemannCellHover = useCallback((cell: RiemannCellSample | null) => {
@@ -447,6 +470,15 @@ export default function App() {
     invalidateRiemannResult()
     setParameterAnimation(null)
     setFormulaDraft(example.expression)
+    setIntegralDraft((current) => ({
+      ...current,
+      expression: example.expression,
+      kind: 'rectangle',
+      xMin: domainBoundText(domain.x.min),
+      xMax: domainBoundText(domain.x.max),
+      yMin: domainBoundText(domain.y.min),
+      yMax: domainBoundText(domain.y.max),
+    }))
     setDomainDraft({
       xMin: domainBoundText(domain.x.min),
       xMax: domainBoundText(domain.x.max),
@@ -454,6 +486,7 @@ export default function App() {
       yMax: domainBoundText(domain.y.max),
     })
     setRiemannExactValue(example.exactValue)
+    setRiemannRegion(null)
     setFormulaError(null)
     requestSurfaceCalculation(example.expression, parameters, domain, true)
   }
@@ -476,7 +509,19 @@ export default function App() {
       const nextParameterValues = Object.fromEntries(
         parameters.map((name) => [name, 1]),
       )
+      setIntegralDraft({
+        expression: formulaDraft,
+        kind: 'rectangle',
+        xMin: domainDraft.xMin,
+        xMax: domainDraft.xMax,
+        yMin: domainDraft.yMin,
+        yMax: domainDraft.yMax,
+        lowerExpression: '0',
+        upperExpression: 'x',
+        samplingMode: 'center',
+      })
       invalidateRiemannResult()
+      setRiemannRegion(null)
       requestSurfaceCalculation(formulaDraft, nextParameterValues, domain, true)
     } catch (error) {
       setFormulaError(
@@ -487,11 +532,54 @@ export default function App() {
     }
   }
 
+  const handlePrepareIntegral = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setParameterAnimation(null)
+    try {
+      const prepared = prepareIntegralCalculatorDraft(integralDraft)
+      const parameters = Object.fromEntries(
+        getExpressionParameters(prepared.expression).map((name) => [name, 1]),
+      )
+      invalidateRiemannResult()
+      setRiemannRegion(prepared.region)
+      setFormulaDraft(prepared.expression)
+      setDomainDraft({
+        xMin: integralDraft.xMin,
+        xMax: integralDraft.xMax,
+        yMin: integralDraft.yMin,
+        yMax: integralDraft.yMax,
+      })
+      setFormulaError(null)
+      setIntegralDraftError(null)
+      requestSurfaceCalculation(prepared.expression, parameters, prepared.domain, true)
+      setTimeout(() => {
+        document.getElementById('riemann-panel')?.scrollIntoView({ behavior: 'smooth' })
+      }, 0)
+    } catch (error) {
+      setIntegralDraftError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível montar esta integral dupla.',
+      )
+    }
+  }
+
+  const setIntegralBoundPreset = (value: string) => {
+    setIntegralDraft((current) => ({ ...current, [integralBoundField]: value }))
+  }
+
   const handleRestoreExample = () => {
     invalidateRiemannResult()
     setParameterAnimation(null)
     setFormulaDraft(DEFAULT_EXPRESSION)
+    setIntegralDraft((current) => ({
+      ...current,
+      expression: DEFAULT_EXPRESSION,
+      kind: 'rectangle',
+      ...DEFAULT_DOMAIN_DRAFT,
+    }))
     setDomainDraft(DEFAULT_DOMAIN_DRAFT)
+    setRiemannRegion(null)
     setFormulaError(null)
     setSurfaceDiagnostics(null)
     setShowCriticalPoints(true)
@@ -538,11 +626,6 @@ export default function App() {
 
   const insertCalculatorToken = (key: CalculatorKey) => {
     const { token, cursorOffset, kind } = key
-    if (token === 'openIntegralTool') {
-      document.getElementById('riemann-panel')?.scrollIntoView({ behavior: 'smooth' })
-      requestAnimationFrame(() => document.getElementById('riemann-calculate')?.focus())
-      return
-    }
     const input = formulaInputRef.current
     const start = input?.selectionStart ?? formulaDraft.length
     const end = input?.selectionEnd ?? formulaDraft.length
@@ -628,7 +711,7 @@ export default function App() {
           <strong>Integrais duplas</strong>
         </div>
         <span className="prototype-tag">
-          <i /> FASE 2 · SOMAS DE RIEMANN
+          <i /> FASE 3 · REGIÕES DE INTEGRAÇÃO
         </span>
       </header>
 
@@ -714,43 +797,315 @@ export default function App() {
                     ))}
                   </div>
                   <div
-                    className={`scientific-calculator calculator-keys-${calculatorTab.replace(/[()]/g, '')}`}
                     id="calculator-keys"
                     role="tabpanel"
                     aria-labelledby={`calculator-tab-${calculatorTab}`}
                     aria-label={`Teclado ${calculatorTab}`}
                   >
-                    {CALCULATOR_KEYS[calculatorTab].map((key) => (
-                      <button
-                        className={`key${key.kind ? ` key-${key.kind}` : ''}`}
-                        key={`${key.label}-${key.token}`}
-                        type="button"
-                        aria-label={
-                          key.token === 'backspace'
-                            ? 'Apagar caractere'
-                            : key.token === 'clear'
-                              ? 'Limpar fórmula'
-                              : key.token === 'left'
-                                ? 'Mover cursor à esquerda'
-                                : key.token === 'right'
-                                  ? 'Mover cursor à direita'
-                                  : key.token === 'enter'
-                                    ? 'Aplicar expressão'
-                                    : key.token === 'openIntegralTool'
-                                      ? 'Abrir ferramenta de integral dupla'
-                                      : `Inserir ${key.label}`
-                        }
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => insertCalculatorToken(key)}
+                    {calculatorTab === '∬' ? (
+                      <form
+                        className="integral-calculator"
+                        onSubmit={handlePrepareIntegral}
                       >
-                        {key.label}
-                      </button>
-                    ))}
+                        <label className="integral-calculator-field">
+                          Integrando <i>f(x, y)</i>
+                          <input
+                            value={integralDraft.expression}
+                            onChange={(event) => {
+                              setIntegralDraft({
+                                ...integralDraft,
+                                expression: event.currentTarget.value,
+                              })
+                              setIntegralDraftError(null)
+                            }}
+                            autoComplete="off"
+                            spellCheck={false}
+                            placeholder="x^2 + y^2"
+                          />
+                        </label>
+                        <label className="integral-calculator-field">
+                          Região de integração
+                          <select
+                            value={integralDraft.kind}
+                            onChange={(event) => {
+                              const kind = event.currentTarget
+                                .value as IntegralRegionKind
+                              setIntegralDraft((current) => ({
+                                ...current,
+                                kind,
+                                ...(kind !== 'rectangle' && current.kind === 'rectangle'
+                                  ? { xMin: '0', xMax: '1', yMin: '0', yMax: '1' }
+                                  : {}),
+                                lowerExpression:
+                                  kind === 'typeII'
+                                    ? 'y'
+                                    : kind === 'typeI'
+                                      ? '0'
+                                      : current.lowerExpression,
+                                upperExpression:
+                                  kind === 'typeII'
+                                    ? '1'
+                                    : kind === 'typeI'
+                                      ? 'x'
+                                      : current.upperExpression,
+                              }))
+                              setIntegralDraftError(null)
+                            }}
+                          >
+                            <option value="rectangle">Retângulo</option>
+                            <option value="typeI">Tipo I · limites em y</option>
+                            <option value="typeII">Tipo II · limites em x</option>
+                          </select>
+                        </label>
+                        <div className="integral-bounds-grid">
+                          <label>
+                            {integralDraft.kind === 'typeI'
+                              ? 'x mínimo externo'
+                              : integralDraft.kind === 'typeII'
+                                ? 'x mínimo da janela'
+                                : 'x mínimo'}
+                            <input
+                              value={integralDraft.xMin}
+                              onFocus={() => setIntegralBoundField('xMin')}
+                              onChange={(event) =>
+                                setIntegralDraft({
+                                  ...integralDraft,
+                                  xMin: event.currentTarget.value,
+                                })
+                              }
+                              aria-label={
+                                integralDraft.kind === 'typeII'
+                                  ? 'Limite esquerdo da janela gráfica em x'
+                                  : 'Limite inferior de x'
+                              }
+                            />
+                          </label>
+                          <label>
+                            {integralDraft.kind === 'typeI'
+                              ? 'x máximo externo'
+                              : integralDraft.kind === 'typeII'
+                                ? 'x máximo da janela'
+                                : 'x máximo'}
+                            <input
+                              value={integralDraft.xMax}
+                              onFocus={() => setIntegralBoundField('xMax')}
+                              onChange={(event) =>
+                                setIntegralDraft({
+                                  ...integralDraft,
+                                  xMax: event.currentTarget.value,
+                                })
+                              }
+                              aria-label={
+                                integralDraft.kind === 'typeII'
+                                  ? 'Limite direito da janela gráfica em x'
+                                  : 'Limite superior de x'
+                              }
+                            />
+                          </label>
+                          <label>
+                            {integralDraft.kind === 'typeII'
+                              ? 'y mínimo externo'
+                              : integralDraft.kind === 'typeI'
+                                ? 'y mínimo da janela'
+                                : 'y mínimo'}
+                            <input
+                              value={integralDraft.yMin}
+                              onFocus={() => setIntegralBoundField('yMin')}
+                              onChange={(event) =>
+                                setIntegralDraft({
+                                  ...integralDraft,
+                                  yMin: event.currentTarget.value,
+                                })
+                              }
+                              aria-label={
+                                integralDraft.kind === 'typeI'
+                                  ? 'Limite inferior da janela gráfica em y'
+                                  : 'Limite inferior de y'
+                              }
+                            />
+                          </label>
+                          <label>
+                            {integralDraft.kind === 'typeII'
+                              ? 'y máximo externo'
+                              : integralDraft.kind === 'typeI'
+                                ? 'y máximo da janela'
+                                : 'y máximo'}
+                            <input
+                              value={integralDraft.yMax}
+                              onFocus={() => setIntegralBoundField('yMax')}
+                              onChange={(event) =>
+                                setIntegralDraft({
+                                  ...integralDraft,
+                                  yMax: event.currentTarget.value,
+                                })
+                              }
+                              aria-label={
+                                integralDraft.kind === 'typeI'
+                                  ? 'Limite superior da janela gráfica em y'
+                                  : 'Limite superior de y'
+                              }
+                            />
+                          </label>
+                        </div>
+                        <div
+                          className="integral-bound-presets"
+                          role="group"
+                          aria-label={`Constantes para o limite ${integralBoundField}`}
+                        >
+                          {[
+                            { label: '−π', value: '-pi' },
+                            { label: '−π/2', value: '-pi/2' },
+                            { label: '0', value: '0' },
+                            { label: 'π/2', value: 'pi/2' },
+                            { label: 'π', value: 'pi' },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => setIntegralBoundPreset(preset.value)}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                        {integralDraft.kind !== 'rectangle' && (
+                          <>
+                            <div className="integral-bounds-grid integral-curve-grid">
+                              <label>
+                                {integralDraft.kind === 'typeI'
+                                  ? 'y inferior'
+                                  : 'x inferior'}
+                                <input
+                                  value={integralDraft.lowerExpression}
+                                  onChange={(event) =>
+                                    setIntegralDraft({
+                                      ...integralDraft,
+                                      lowerExpression: event.currentTarget.value,
+                                    })
+                                  }
+                                  placeholder={
+                                    integralDraft.kind === 'typeI' ? '0' : 'y'
+                                  }
+                                />
+                              </label>
+                              <label>
+                                {integralDraft.kind === 'typeI'
+                                  ? 'y superior'
+                                  : 'x superior'}
+                                <input
+                                  value={integralDraft.upperExpression}
+                                  onChange={(event) =>
+                                    setIntegralDraft({
+                                      ...integralDraft,
+                                      upperExpression: event.currentTarget.value,
+                                    })
+                                  }
+                                  placeholder={
+                                    integralDraft.kind === 'typeI' ? 'x' : '1'
+                                  }
+                                />
+                              </label>
+                            </div>
+                            <label className="integral-calculator-field">
+                              Amostragem da região
+                              <select
+                                value={integralDraft.samplingMode}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    samplingMode: event.currentTarget.value as
+                                      'center' | 'precise',
+                                  })
+                                }
+                              >
+                                <option value="center">Centro dentro</option>
+                                <option value="precise">
+                                  Ponderar fração da célula
+                                </option>
+                              </select>
+                            </label>
+                          </>
+                        )}
+                        <RegionPreview draft={integralDraft} />
+                        <p className="integral-notation" aria-live="polite">
+                          {integralDraft.kind === 'typeII' ? (
+                            <code>
+                              ∫<sub>{integralDraft.yMin}</sub>
+                              <sup>{integralDraft.yMax}</sup> ∫
+                              <sub>{integralDraft.lowerExpression}</sub>
+                              <sup>{integralDraft.upperExpression}</sup>{' '}
+                              {integralDraft.expression || 'f(x,y)'} dx dy
+                            </code>
+                          ) : (
+                            <code>
+                              ∫<sub>{integralDraft.xMin}</sub>
+                              <sup>{integralDraft.xMax}</sup> ∫
+                              <sub>
+                                {integralDraft.kind === 'rectangle'
+                                  ? integralDraft.yMin
+                                  : integralDraft.lowerExpression}
+                              </sub>
+                              <sup>
+                                {integralDraft.kind === 'rectangle'
+                                  ? integralDraft.yMax
+                                  : integralDraft.upperExpression}
+                              </sup>{' '}
+                              {integralDraft.expression || 'f(x,y)'} dy dx
+                            </code>
+                          )}
+                        </p>
+                        {integralDraftError && (
+                          <p className="formula-error" role="alert">
+                            {integralDraftError}
+                          </p>
+                        )}
+                        <button className="integral-prepare-button" type="submit">
+                          Preparar integral no gráfico
+                        </button>
+                        <p className="calculator-keyboard-hint">
+                          Limites usam números, <i>π</i> e <i>e</i>. Em tipo I, as
+                          curvas dependem de <i>x</i>; em tipo II, de <i>y</i>. Depois,
+                          use “Calcular e visualizar” para formar a soma e os prismas.
+                        </p>
+                      </form>
+                    ) : (
+                      <div
+                        className={`scientific-calculator calculator-keys-${calculatorTab.replace(/[()]/g, '')}`}
+                      >
+                        {CALCULATOR_KEYS[calculatorTab].map((key) => (
+                          <button
+                            className={`key${key.kind ? ` key-${key.kind}` : ''}`}
+                            key={`${key.label}-${key.token}`}
+                            type="button"
+                            aria-label={
+                              key.token === 'backspace'
+                                ? 'Apagar caractere'
+                                : key.token === 'clear'
+                                  ? 'Limpar fórmula'
+                                  : key.token === 'left'
+                                    ? 'Mover cursor à esquerda'
+                                    : key.token === 'right'
+                                      ? 'Mover cursor à direita'
+                                      : key.token === 'enter'
+                                        ? 'Aplicar expressão'
+                                        : `Inserir ${key.label}`
+                            }
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => insertCalculatorToken(key)}
+                          >
+                            {key.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <p className="calculator-keyboard-hint">
-                    Modelos deixam o cursor no espaço a preencher. A tecla ∬ abre a
-                    ferramenta de integração dupla.
-                  </p>
+                  {calculatorTab !== '∬' && (
+                    <p className="calculator-keyboard-hint">
+                      Modelos deixam o cursor no espaço a preencher; setas navegam e
+                      Aplicar atualiza a superfície.
+                    </p>
+                  )}
                 </div>
                 <fieldset className="domain-controls">
                   <legend>Domínio de exploração</legend>
@@ -980,6 +1335,7 @@ export default function App() {
             sceneMode={riemannSceneMode}
             omittedPrisms={omittedRiemannPrisms}
             exactValue={riemannExactValue}
+            region={riemannRegion}
             onCalculate={handleRiemannCalculate}
             onSceneModeChange={setRiemannSceneMode}
             onExampleSelect={handleRiemannExampleSelect}

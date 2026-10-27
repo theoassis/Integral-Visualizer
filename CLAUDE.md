@@ -10,7 +10,7 @@ gradientes e equações diferenciais (estilo GeoGebra 3D, focado em Cálculo II/
 
 - Especificação completa: `docs/plano_integral_visualizer.pdf` (arquitetura, matemática, tipos, testes, roadmap).
 - Estado atual do trabalho: `PROGRESS.md` (sempre atualizado por você).
-- Prompts e critérios de cada fase: `docs/PROMPTS_FASES.md`.
+- Prompts e critérios de cada fase: `PROMPTS_FASES.md` (na raiz do repositório).
 - Como o revisor confere a matemática: `docs/REVISAO_MATEMATICA.md`.
 
 ## 2. Papéis (importante)

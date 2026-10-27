@@ -63,4 +63,24 @@ describe('buildRiemannColumns', () => {
     mesh.geometry.dispose()
     mesh.material.dispose()
   })
+
+  it('omite células fora da região e escala a base pela fração estimada', () => {
+    const data: RiemannGridData = {
+      ...grid,
+      cellFractions: new Float32Array([0.25, 0]),
+    }
+    const { mesh, cellIndices, omittedCount } = buildRiemannColumns(data, 'atlas')
+    const matrix = new Matrix4()
+    const scale = new Vector3()
+    mesh.getMatrixAt(0, matrix)
+    matrix.decompose(new Vector3(), new Quaternion(), scale)
+
+    expect(mesh.count).toBe(1)
+    expect([...cellIndices]).toEqual([0])
+    expect(omittedCount).toBe(1)
+    expect(scale.x).toBeCloseTo(0.48, 6)
+    expect(scale.y).toBeCloseTo(0.96, 6)
+    mesh.geometry.dispose()
+    mesh.material.dispose()
+  })
 })

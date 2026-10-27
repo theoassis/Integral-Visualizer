@@ -7,6 +7,12 @@ import { integral2Rectangular as integrateByGauss } from '../core/quad/iterated'
 import type { VisualizableFunction } from '../core/functions/types'
 import { createExpressionFunction } from '../core/functions/expressionFunction'
 import { estimateObservedOrder, type ConvergencePoint } from '../core/quad/convergence'
+import { integral2TypeI, integral2TypeII } from '../core/regions/regions'
+import {
+  createRegionFromExpressions,
+  riemann2OverRegion,
+} from '../core/regions/riemannRegion'
+import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 
 export interface RiemannCalculationRequest {
   readonly jobId: number
@@ -16,6 +22,7 @@ export interface RiemannCalculationRequest {
   readonly rule: RiemannRule
   readonly xSubdivisions: number
   readonly ySubdivisions: number
+  readonly region?: RegionExpressionDefinition
 }
 
 export interface RiemannCalculationResult {
@@ -41,46 +48,74 @@ export function calculateRiemannIntegral(
     request.domain,
   )
   const { xSubdivisions, ySubdivisions } = request
+  const xBounds = [request.domain.x.min, request.domain.x.max] as const
+  const yBounds = [request.domain.y.min, request.domain.y.max] as const
+  const region = request.region
+    ? createRegionFromExpressions(request.region, xBounds, yBounds)
+    : null
+  const sampleRegion = (xCount: number, yCount: number) => {
+    if (!request.region || !region) return null
+    return riemann2OverRegion(
+      func.evaluate,
+      xBounds,
+      yBounds,
+      region,
+      xCount,
+      yCount,
+      request.region.samplingMode,
+    )
+  }
+  const regionGrid = sampleRegion(xSubdivisions, ySubdivisions)
   const sampleCount = xSubdivisions * ySubdivisions
   const values = new Float64Array(sampleCount)
   const sampleX = new Float64Array(sampleCount)
   const sampleY = new Float64Array(sampleCount)
-  const options = {
-    rule: request.rule,
-    xSubdivisions,
-    ySubdivisions,
+  let value: number
+  if (regionGrid) {
+    values.set(regionGrid.values)
+    sampleX.set(regionGrid.sampleX)
+    sampleY.set(regionGrid.sampleY)
+    value = regionGrid.value
+  } else {
+    value = riemann2Rectangular(
+      func.evaluate,
+      xBounds,
+      yBounds,
+      { rule: request.rule, xSubdivisions, ySubdivisions },
+      (cell) => {
+        const index = cell.row * ySubdivisions + cell.column
+        values[index] = cell.value
+        sampleX[index] = cell.x
+        sampleY[index] = cell.y
+      },
+    )
   }
 
-  const value = riemann2Rectangular(
-    func.evaluate,
-    [request.domain.x.min, request.domain.x.max],
-    [request.domain.y.min, request.domain.y.max],
-    options,
-    (cell) => {
-      const index = cell.row * ySubdivisions + cell.column
-      values[index] = cell.value
-      sampleX[index] = cell.x
-      sampleY[index] = cell.y
-    },
-  )
-
-  const xBounds = [request.domain.x.min, request.domain.x.max] as const
-  const yBounds = [request.domain.y.min, request.domain.y.max] as const
-  const referenceValue = integrateByGauss(func.evaluate, xBounds, yBounds, 64)
-  const referenceAt32 = integrateByGauss(func.evaluate, xBounds, yBounds, 32)
+  const integrate = (order: number) => {
+    if (!request.region || !region) {
+      return integrateByGauss(func.evaluate, xBounds, yBounds, order)
+    }
+    return region.kind === 'typeI'
+      ? integral2TypeI(func.evaluate, region, order)
+      : integral2TypeII(func.evaluate, region, order)
+  }
+  const referenceValue = integrate(64)
+  const referenceAt32 = integrate(32)
   const referenceRefinementDifference = Math.abs(referenceValue - referenceAt32)
   const convergenceNoiseFloor =
     64 * Number.EPSILON * Math.max(1, Math.abs(referenceValue))
   const convergenceSubdivisions = [4, 8, 16, 32, 64]
   const convergence = convergenceSubdivisions.map((subdivisions) => {
-    const convergenceValue = riemann2Rectangular(func.evaluate, xBounds, yBounds, {
-      rule: request.rule,
-      xSubdivisions: subdivisions,
-      ySubdivisions: subdivisions,
-      ...(request.rule === 'random'
-        ? { random: createSeededRandom(request.expression, subdivisions) }
-        : {}),
-    })
+    const convergenceValue = request.region
+      ? (sampleRegion(subdivisions, subdivisions)?.value ?? Number.NaN)
+      : riemann2Rectangular(func.evaluate, xBounds, yBounds, {
+          rule: request.rule,
+          xSubdivisions: subdivisions,
+          ySubdivisions: subdivisions,
+          ...(request.rule === 'random'
+            ? { random: createSeededRandom(request.expression, subdivisions) }
+            : {}),
+        })
     const rawError = Math.abs(convergenceValue - referenceValue)
     return {
       subdivisions,
@@ -104,7 +139,7 @@ export function calculateRiemannIntegral(
     observedOrder: estimateObservedOrder(convergence),
     elapsedMs: performance.now() - startedAt,
     grid: {
-      rule: request.rule,
+      rule: request.region ? 'midpoint' : request.rule,
       xMin: request.domain.x.min,
       yMin: request.domain.y.min,
       deltaX: (request.domain.x.max - request.domain.x.min) / xSubdivisions,
@@ -114,6 +149,7 @@ export function calculateRiemannIntegral(
       values,
       sampleX,
       sampleY,
+      ...(regionGrid ? { cellFractions: regionGrid.cellFractions } : {}),
     },
   }
 }

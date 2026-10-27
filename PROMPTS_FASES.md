@@ -194,7 +194,7 @@ um método de limites rigorosos. Inclua a tabela de erro por n.
 **Tarefas:**
 
 - F3-T1: `core/regions` com tipos I e II (`contains`, `bounds`) e integral iterada; testes A5, A6.
-- F3-T2: desenho da região no plano e prismas apenas dentro dela (modos "centro dentro" e "preciso").
+- F3-T2: construtor de integrais com entrada de f(x,y), limites retangulares/tipo I/tipo II, prévia 2D e prismas restritos à região (modos "centro dentro" e "preciso", com a fração de área explicitamente estimada).
 - F3-T3: região polar e Jacobiano r; testes A4, A7, A8, A9; animação dos setores.
 - F3-T4: região por desigualdades (varredura + bissecção; fallback Monte Carlo com erro estatístico).
 - F3-T5: mudar a ordem de integração (I ↔ II) com validação cruzada dos dois valores.
@@ -202,6 +202,8 @@ um método de limites rigorosos. Inclua a tabela de erro por n.
 - F3-T7: painel com a integral iterada montada em LaTeX (limites substituídos).
 
 **Critério de aceite:** A4–A9 passam; conversão I↔II dá o mesmo valor; painel mostra a integral certa.
+
+**Adendo solicitado pelo usuário (2026-10-26):** as integrais duplas devem ser montadas em uma aba própria da calculadora, sem enviar o símbolo `∬` ao parser de superfícies `z=f(x,y)`. O editor deve mostrar limites e notação da integral, aceitar constantes (`π`, `e`) nos limites, pré-visualizar a região e permitir preparar a função/domínio para os prismas. Para fronteiras curvas, validar dependência/ordem dos limites e explicar o método de amostragem; não alegar área exata quando a fração é estimada por subamostragem.
 
 **Revisor confere:**
 

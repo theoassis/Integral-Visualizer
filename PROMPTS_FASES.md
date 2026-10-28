@@ -205,6 +205,8 @@ um método de limites rigorosos. Inclua a tabela de erro por n.
 
 **Adendo solicitado pelo usuário (2026-10-26):** as integrais duplas devem ser montadas em uma aba própria da calculadora, sem enviar o símbolo `∬` ao parser de superfícies `z=f(x,y)`. O editor deve mostrar limites e notação da integral, aceitar constantes (`π`, `e`) nos limites, pré-visualizar a região e permitir preparar a função/domínio para os prismas. Para fronteiras curvas, validar dependência/ordem dos limites e explicar o método de amostragem; não alegar área exata quando a fração é estimada por subamostragem.
 
+**Adendo F3-T4 (2026-10-27):** regiões implícitas são definidas como `g(x,y) ≤ 0` dentro de uma janela retangular finita. A referência principal deve varrer fatias, detectar mudanças de sinal e localizar fronteiras por bissecção; comparar refinamentos e informar que a diferença é estimativa. Se a fronteira exceder o limite de cruzamentos ou o refinamento divergir, usar Monte Carlo e apresentar erro padrão estatístico, sem chamá-lo de garantia/intervalo de confiança. A prévia e os prismas são aproximações por malha, não contornos exatos. Testar fronteiras múltiplas, oscilatórias e alinhadas à malha para expor aliasing.
+
 **Revisor confere:**
 
 - Triângulo 0 ≤ y ≤ x ≤ 1 com f = x: a integral iterada exibida deve ser ∫₀¹∫₀ˣ x dy dx = 1/3.

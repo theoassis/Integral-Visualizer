@@ -88,6 +88,10 @@ export default function RiemannPanel({
             <>
               ∫<sub>θ</sub>∫<sub>r</sub> f(r cos θ, r sin θ) r dr dθ
             </>
+          ) : region?.kind === 'inequality' ? (
+            <>
+              ∬<sub>D: g(x,y) ≤ 0</sub> f(x,y) dA
+            </>
           ) : (
             <>
               ∬<sub>D</sub> f(x, y) dA ≈ ∑ f(x*, y*) ΔA
@@ -142,9 +146,11 @@ export default function RiemannPanel({
         <p className="riemann-help" role="status">
           {region.kind === 'polar'
             ? 'Região polar: a referência aplica (x,y)=(r cos θ,r sin θ) e o jacobiano r. Os prismas são a aproximação cartesiana da região; a prévia anima a decomposição em setores.'
-            : region.samplingMode === 'center'
-              ? 'Modo “centro dentro”: cada célula conta inteira somente se seu centro estiver na região. As células de fronteira podem causar erro visível.'
-              : 'Modo ponderado: cada célula usa a fração coberta estimada por subamostragem 8×8. É uma aproximação geométrica da fronteira.'}
+            : region.kind === 'inequality'
+              ? 'Região implícita: a malha testa g(x,y) ≤ 0. A referência varre fatias verticais, encontra cruzamentos por bissecção e usa Monte Carlo com erro padrão se houver cruzamentos demais.'
+              : region.samplingMode === 'center'
+                ? 'Modo “centro dentro”: cada célula conta inteira somente se seu centro estiver na região. As células de fronteira podem causar erro visível.'
+                : 'Modo ponderado: cada célula usa a fração coberta estimada por subamostragem 8×8. É uma aproximação geométrica da fronteira.'}
         </p>
       )}
 
@@ -234,9 +240,23 @@ export default function RiemannPanel({
               <dd>{formatValue(result.value)}</dd>
             </div>
             <div>
-              <dt>Referência numérica · Gauss 64×64</dt>
+              <dt>
+                {result.referenceMethod === 'gauss-legendre'
+                  ? 'Referência numérica · Gauss 64×64'
+                  : result.referenceMethod === 'polar-jacobian'
+                    ? 'Referência polar · quadratura com Jacobiano r'
+                    : result.referenceMethod === 'scan-bisection'
+                      ? 'Referência · varredura e bissecção'
+                      : 'Referência · Monte Carlo'}
+              </dt>
               <dd>{formatValue(result.referenceValue)}</dd>
             </div>
+            {result.referenceMethod === 'monte-carlo' && (
+              <div>
+                <dt>Erro padrão estimado · Monte Carlo</dt>
+                <dd>{formatValue(result.referenceErrorEstimate ?? Number.NaN)}</dd>
+              </div>
+            )}
             {exactValue !== null && (
               <div>
                 <dt>Valor exato do exemplo</dt>
@@ -244,7 +264,7 @@ export default function RiemannPanel({
               </div>
             )}
             <div>
-              <dt>Erro absoluto |S − I₆₄|</dt>
+              <dt>Erro absoluto |S − I referência|</dt>
               <dd>{formatValue(result.absoluteError)}</dd>
             </div>
             {exactValue !== null && (
@@ -265,10 +285,16 @@ export default function RiemannPanel({
               <dt>Tempo de cálculo</dt>
               <dd>{formatValue(result.elapsedMs)} ms</dd>
             </div>
-            <div>
-              <dt>Estabilidade da referência · 32→64</dt>
-              <dd>{formatValue(result.referenceRefinementDifference)}</dd>
-            </div>
+            {result.referenceMethod !== 'monte-carlo' && (
+              <div>
+                <dt>
+                  {result.referenceMethod === 'scan-bisection'
+                    ? 'Diferença de refinamento da varredura'
+                    : 'Estabilidade da referência · 32→64'}
+                </dt>
+                <dd>{formatValue(result.referenceRefinementDifference)}</dd>
+              </div>
+            )}
           </dl>
           <section
             className="riemann-convergence"
@@ -291,9 +317,13 @@ export default function RiemannPanel({
             </p>
           </section>
           <p className="riemann-disclaimer">
-            A referência usa quadratura de Gauss–Legendre 64×64, não um valor simbólico
-            nem certificado. O sólido é construído da malha refinada e representa o
-            volume assinado entre a superfície e z = 0; é uma aproximação geométrica.
+            {result.referenceMethod === 'scan-bisection'
+              ? 'A referência da desigualdade é uma integração numérica por varredura e bissecção; a diferença entre resoluções é uma estimativa, não um limite certificado.'
+              : result.referenceMethod === 'monte-carlo'
+                ? 'A referência da desigualdade usa amostragem Monte Carlo. O erro exibido é um erro padrão estatístico, não um intervalo garantido.'
+                : 'A referência usa quadratura numérica, não um valor simbólico nem certificado.'}{' '}
+            O sólido é construído da malha refinada e representa o volume assinado entre
+            a superfície e z = 0; é uma aproximação geométrica.
           </p>
           {region && (
             <p className="riemann-disclaimer">

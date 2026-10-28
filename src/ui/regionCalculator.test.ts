@@ -18,6 +18,7 @@ const baseDraft: IntegralCalculatorDraft = {
   rMax: '1',
   thetaMin: '0',
   thetaMax: '2*pi',
+  inequalityExpression: 'x^2+y^2-1',
 }
 
 describe('construtor da integral dupla', () => {
@@ -84,5 +85,38 @@ describe('construtor da integral dupla', () => {
     expect(() =>
       prepareIntegralCalculatorDraft({ ...baseDraft, kind: 'polar', thetaMax: '3*pi' }),
     ).toThrow(/angulares/)
+  })
+
+  it('prepara domínio e expressão para uma região definida por g(x,y)≤0', () => {
+    const result = prepareIntegralCalculatorDraft({ ...baseDraft, kind: 'inequality' })
+    expect(result.region).toMatchObject({
+      kind: 'inequality',
+      inequalityExpression: 'x^2+y^2-1',
+    })
+    expect(result.domain).toEqual({ x: { min: 0, max: 1 }, y: { min: 0, max: 1 } })
+  })
+
+  it('rejeita desigualdade com variável desconhecida, região não finita ou expressão vazia', () => {
+    expect(() =>
+      prepareIntegralCalculatorDraft({
+        ...baseDraft,
+        kind: 'inequality',
+        inequalityExpression: 'z-1',
+      }),
+    ).toThrow(/somente de x e y/)
+    expect(() =>
+      prepareIntegralCalculatorDraft({
+        ...baseDraft,
+        kind: 'inequality',
+        inequalityExpression: '1/(x-x)',
+      }),
+    ).toThrow(/não é finita/)
+    expect(() =>
+      prepareIntegralCalculatorDraft({
+        ...baseDraft,
+        kind: 'inequality',
+        inequalityExpression: '',
+      }),
+    ).toThrow()
   })
 })

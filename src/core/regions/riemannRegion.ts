@@ -1,18 +1,30 @@
 import type { Integrand2D, Interval } from '../quad/iterated'
 import { compileExpression } from '../expr/codegen'
-import { createPolarRegion, createTypeIRegion, createTypeIIRegion } from './regions'
-import type { PolarRegion, TypeIRegion, TypeIIRegion } from './regions'
+import {
+  createInequalityRegion,
+  createPolarRegion,
+  createTypeIRegion,
+  createTypeIIRegion,
+} from './regions'
+import type {
+  InequalityRegion,
+  PolarRegion,
+  TypeIRegion,
+  TypeIIRegion,
+} from './regions'
 
 export type RegionSamplingMode = 'center' | 'precise'
-export type IntegrationRegion = TypeIRegion | TypeIIRegion | PolarRegion
+export type IntegrationRegion =
+  TypeIRegion | TypeIIRegion | PolarRegion | InequalityRegion
 
 export interface RegionExpressionDefinition {
-  readonly kind: 'typeI' | 'typeII' | 'polar'
+  readonly kind: 'typeI' | 'typeII' | 'polar' | 'inequality'
   readonly lowerExpression: string
   readonly upperExpression: string
   readonly samplingMode: RegionSamplingMode
   readonly radiusBounds?: Interval
   readonly thetaBounds?: Interval
+  readonly inequalityExpression?: string
 }
 
 export interface RegionRiemannGrid {
@@ -39,6 +51,18 @@ export function createRegionFromExpressions(
   xBounds: Interval,
   yBounds: Interval,
 ): IntegrationRegion {
+  if (definition.kind === 'inequality') {
+    if (!definition.inequalityExpression) {
+      throw new RangeError('Informe a expressão da desigualdade g(x,y) ≤ 0.')
+    }
+    const expression = compileExpression(definition.inequalityExpression)
+    if (expression.variables.some((name) => name !== 'x' && name !== 'y')) {
+      throw new RangeError('A desigualdade pode depender somente de x e y.')
+    }
+    return createInequalityRegion(xBounds, yBounds, (x, y) =>
+      expression.evaluate({ x, y }),
+    )
+  }
   if (definition.kind === 'polar') {
     if (!definition.radiusBounds || !definition.thetaBounds) {
       throw new RangeError('A região polar precisa dos limites de r e θ.')

@@ -1002,6 +1002,11 @@ button {
   stroke-width: 1.4;
 }
 
+.inequality-region-preview .inequality-region-cells {
+  fill: rgb(132 196 170 / 36%);
+  stroke: none;
+}
+
 @keyframes polar-sector-form {
   from {
     opacity: 0;

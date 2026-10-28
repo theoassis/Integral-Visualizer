@@ -1,10 +1,17 @@
 import { gaussLegendre } from '../quad/gauss'
 import type { Integrand2D, Interval } from '../quad/iterated'
 
-interface RegionBase {
+export interface RegionBase {
   readonly contains: (x: number, y: number) => boolean
   /** Returns the bounds of the inner variable at a given outer coordinate. */
   readonly bounds: (outer: number) => Interval
+}
+
+export interface InequalityRegion extends RegionBase {
+  readonly kind: 'inequality'
+  readonly xBounds: Interval
+  readonly yBounds: Interval
+  readonly evaluate: (x: number, y: number) => number
 }
 
 export interface TypeIRegion extends RegionBase {
@@ -128,6 +135,43 @@ export function createPolarRegion(
   })
 }
 
+export function createInequalityRegion(
+  xBounds: Interval,
+  yBounds: Interval,
+  evaluate: (x: number, y: number) => number,
+): InequalityRegion {
+  assertInterval(xBounds, 'Os limites de x')
+  assertInterval(yBounds, 'Os limites de y')
+  if (xBounds[0] === xBounds[1] || yBounds[0] === yBounds[1]) {
+    throw new RangeError('A janela da desigualdade precisa ter área positiva.')
+  }
+  const valueAt = (x: number, y: number) => {
+    const value = evaluate(x, y)
+    if (!Number.isFinite(value)) {
+      throw new RangeError(`A desigualdade não é finita em (${x}, ${y}).`)
+    }
+    return value
+  }
+  return Object.freeze({
+    kind: 'inequality' as const,
+    xBounds: Object.freeze([...xBounds]) as unknown as Interval,
+    yBounds: Object.freeze([...yBounds]) as unknown as Interval,
+    bounds: () => yBounds,
+    evaluate: valueAt,
+    contains: (x: number, y: number) => {
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !inside(x, xBounds) ||
+        !inside(y, yBounds)
+      ) {
+        return false
+      }
+      return valueAt(x, y) <= 0
+    },
+  })
+}
+
 function integrateOverRegion(
   outerBounds: Interval,
   innerBoundsAt: (outer: number) => Interval,
@@ -202,4 +246,196 @@ export function integral2Polar(
     (theta, radius) => f(radius * Math.cos(theta), radius * Math.sin(theta)) * radius,
     order,
   )
+}
+
+export interface InequalityIntegrationOptions {
+  readonly xSlices?: number
+  readonly yScanSlices?: number
+  readonly maxBoundaryCrossings?: number
+  readonly monteCarloSamples?: number
+  readonly seed?: number
+}
+
+export interface InequalityIntegrationResult {
+  readonly value: number
+  /** Refinement difference for scan mode, or one standard error for Monte Carlo. */
+  readonly errorEstimate: number
+  readonly method: 'scan-bisection' | 'monte-carlo'
+  readonly samples: number
+}
+
+function integrateBetween(
+  f: Integrand2D,
+  x: number,
+  start: number,
+  end: number,
+  nodes: Float64Array,
+  weights: Float64Array,
+): number {
+  if (start === end) return 0
+  const center = start / 2 + end / 2
+  const halfWidth = end / 2 - start / 2
+  let sum = 0
+  for (let index = 0; index < nodes.length; index += 1) {
+    const y = center + halfWidth * nodes[index]!
+    const value = f(x, y)
+    if (!Number.isFinite(value)) {
+      throw new RangeError(`O integrando não é finito em (${x}, ${y}).`)
+    }
+    sum += weights[index]! * value
+  }
+  return sum * halfWidth
+}
+
+function rootsOnVerticalSlice(
+  region: InequalityRegion,
+  x: number,
+  scanSlices: number,
+  maxCrossings: number,
+): number[] | null {
+  const [yMin, yMax] = region.yBounds
+  const step = (yMax - yMin) / scanSlices
+  const roots: number[] = []
+  let left = yMin
+  let leftValue = region.evaluate(x, left)
+  for (let index = 1; index <= scanSlices; index += 1) {
+    const right = yMin + index * step
+    const rightValue = region.evaluate(x, right)
+    const leftInside = leftValue <= 0
+    const rightInside = rightValue <= 0
+    if (leftInside !== rightInside) {
+      let lo = left
+      let hi = right
+      const loInside = leftInside
+      for (let iteration = 0; iteration < 40; iteration += 1) {
+        const middle = lo / 2 + hi / 2
+        const middleInside = region.evaluate(x, middle) <= 0
+        if (middleInside === loInside) lo = middle
+        else hi = middle
+      }
+      roots.push(lo / 2 + hi / 2)
+      if (roots.length > maxCrossings) return null
+    }
+    left = right
+    leftValue = rightValue
+  }
+  return roots
+}
+
+function scanBisectionValue(
+  f: Integrand2D,
+  region: InequalityRegion,
+  xSlices: number,
+  yScanSlices: number,
+  maxCrossings: number,
+): number | null {
+  const { nodes, weights } = gaussLegendre(8)
+  const [xMin, xMax] = region.xBounds
+  const [yMin, yMax] = region.yBounds
+  const dx = (xMax - xMin) / xSlices
+  let total = 0
+  for (let index = 0; index < xSlices; index += 1) {
+    const x = xMin + (index + 0.5) * dx
+    const roots = rootsOnVerticalSlice(region, x, yScanSlices, maxCrossings)
+    if (roots === null) return null
+    const cuts = [yMin, ...roots, yMax]
+    for (let cut = 0; cut < cuts.length - 1; cut += 1) {
+      const start = cuts[cut]!
+      const end = cuts[cut + 1]!
+      if (region.evaluate(x, start / 2 + end / 2) <= 0) {
+        total += integrateBetween(f, x, start, end, nodes, weights) * dx
+      }
+    }
+  }
+  if (!Number.isFinite(total))
+    throw new RangeError('A integral excede a faixa numérica.')
+  return total
+}
+
+function monteCarloInequality(
+  f: Integrand2D,
+  region: InequalityRegion,
+  samples: number,
+  seed: number,
+): InequalityIntegrationResult {
+  if (!Number.isSafeInteger(samples) || samples < 2 || samples > 2_000_000) {
+    throw new RangeError('O fallback Monte Carlo precisa de 2 a 2.000.000 amostras.')
+  }
+  let state = seed | 0
+  const random = () => {
+    state = (state + 0x6d2b79f5) | 0
+    let value = Math.imul(state ^ (state >>> 15), 1 | state)
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value)
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296
+  }
+  const [xMin, xMax] = region.xBounds
+  const [yMin, yMax] = region.yBounds
+  const area = (xMax - xMin) * (yMax - yMin)
+  if (!Number.isFinite(area)) {
+    throw new RangeError('A janela da desigualdade excede a faixa numérica suportada.')
+  }
+  let mean = 0
+  let squaredDeviationSum = 0
+  for (let index = 0; index < samples; index += 1) {
+    const x = xMin + random() * (xMax - xMin)
+    const y = yMin + random() * (yMax - yMin)
+    const value = region.evaluate(x, y) <= 0 ? f(x, y) : 0
+    if (!Number.isFinite(value)) {
+      throw new RangeError(`O integrando não é finito em (${x}, ${y}).`)
+    }
+    const delta = value - mean
+    mean += delta / (index + 1)
+    squaredDeviationSum += delta * (value - mean)
+  }
+  const variance = Math.max(0, squaredDeviationSum / (samples - 1))
+  const value = area * mean
+  const errorEstimate = area * Math.sqrt(variance / samples)
+  if (!Number.isFinite(value) || !Number.isFinite(errorEstimate)) {
+    throw new RangeError('A estimativa Monte Carlo excede a faixa numérica suportada.')
+  }
+  return {
+    value,
+    errorEstimate,
+    method: 'monte-carlo',
+    samples,
+  }
+}
+
+/** Scans vertical slices, bisects sign changes, and falls back to Monte Carlo for complex boundaries. */
+export function integral2Inequality(
+  f: Integrand2D,
+  region: InequalityRegion,
+  options: InequalityIntegrationOptions = {},
+): InequalityIntegrationResult {
+  const xSlices = options.xSlices ?? 96
+  const yScanSlices = options.yScanSlices ?? 256
+  const maxCrossings = options.maxBoundaryCrossings ?? 24
+  const monteCarloSamples = options.monteCarloSamples ?? 100_000
+  for (const [value, name, min, max] of [
+    [xSlices, 'As fatias em x', 2, 512],
+    [yScanSlices, 'As fatias de varredura em y', 2, 1024],
+    [maxCrossings, 'O número máximo de cruzamentos', 1, 1024],
+  ] as const) {
+    if (!Number.isSafeInteger(value) || value < min || value > max) {
+      throw new RangeError(`${name} devem ser inteiras entre ${min} e ${max}.`)
+    }
+  }
+  const coarse = scanBisectionValue(f, region, xSlices, yScanSlices, maxCrossings)
+  if (coarse === null) {
+    return monteCarloInequality(f, region, monteCarloSamples, options.seed ?? 0x51f15e)
+  }
+  const fine = scanBisectionValue(f, region, xSlices * 2, yScanSlices * 2, maxCrossings)
+  if (fine === null) {
+    return monteCarloInequality(f, region, monteCarloSamples, options.seed ?? 0x51f15e)
+  }
+  const refinementDifference = Math.abs(fine - coarse)
+  if (refinementDifference > 0.02 * Math.max(1, Math.abs(fine))) {
+    return monteCarloInequality(f, region, monteCarloSamples, options.seed ?? 0x51f15e)
+  }
+  return {
+    value: fine,
+    errorEstimate: refinementDifference,
+    method: 'scan-bisection',
+    samples: xSlices * 5 * yScanSlices,
+  }
 }

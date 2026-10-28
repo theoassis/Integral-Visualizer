@@ -171,6 +171,7 @@ export default function App() {
     rMax: '1',
     thetaMin: '0',
     thetaMax: '2*pi',
+    inequalityExpression: 'x^2+y^2-1',
   })
   const [integralDraftError, setIntegralDraftError] = useState<string | null>(null)
   const [integralBoundField, setIntegralBoundField] =
@@ -528,6 +529,7 @@ export default function App() {
         rMax: '1',
         thetaMin: '0',
         thetaMax: '2*pi',
+        inequalityExpression: 'x^2+y^2-1',
       })
       invalidateRiemannResult()
       setRiemannRegion(null)
@@ -865,6 +867,9 @@ export default function App() {
                                       thetaMax: '2*pi',
                                     }
                                   : {}),
+                                ...(kind === 'inequality'
+                                  ? { xMin: '-1', xMax: '1', yMin: '-1', yMax: '1' }
+                                  : {}),
                               }))
                               setIntegralDraftError(null)
                             }}
@@ -873,6 +878,9 @@ export default function App() {
                             <option value="typeI">Tipo I · limites em y</option>
                             <option value="typeII">Tipo II · limites em x</option>
                             <option value="polar">Polar · setores e Jacobiano r</option>
+                            <option value="inequality">
+                              Desigualdade · g(x,y) ≤ 0
+                            </option>
                           </select>
                         </label>
                         {integralDraft.kind === 'polar' ? (
@@ -1045,7 +1053,8 @@ export default function App() {
                           ))}
                         </div>
                         {integralDraft.kind !== 'rectangle' &&
-                          integralDraft.kind !== 'polar' && (
+                          integralDraft.kind !== 'polar' &&
+                          integralDraft.kind !== 'inequality' && (
                             <>
                               <div className="integral-bounds-grid integral-curve-grid">
                                 <label>
@@ -1103,9 +1112,50 @@ export default function App() {
                               </label>
                             </>
                           )}
+                        {integralDraft.kind === 'inequality' && (
+                          <>
+                            <label className="integral-calculator-field">
+                              Desigualdade da região · g(x,y) ≤ 0
+                              <input
+                                value={integralDraft.inequalityExpression}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    inequalityExpression: event.currentTarget.value,
+                                  })
+                                }
+                                placeholder="x^2+y^2-1"
+                              />
+                            </label>
+                            <label className="integral-calculator-field">
+                              Amostragem da região
+                              <select
+                                value={integralDraft.samplingMode}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    samplingMode: event.currentTarget.value as
+                                      'center' | 'precise',
+                                  })
+                                }
+                              >
+                                <option value="center">Centro dentro</option>
+                                <option value="precise">
+                                  Ponderar fração da célula
+                                </option>
+                              </select>
+                            </label>
+                          </>
+                        )}
                         <RegionPreview draft={integralDraft} />
                         <p className="integral-notation" aria-live="polite">
-                          {integralDraft.kind === 'polar' ? (
+                          {integralDraft.kind === 'inequality' ? (
+                            <code>
+                              ∬
+                              <sub>{`D: ${integralDraft.inequalityExpression} ≤ 0`}</sub>{' '}
+                              {integralDraft.expression || 'f(x,y)'} dA
+                            </code>
+                          ) : integralDraft.kind === 'polar' ? (
                             <code>
                               ∫<sub>{integralDraft.thetaMin}</sub>
                               <sup>{integralDraft.thetaMax}</sup> ∫
@@ -1149,9 +1199,10 @@ export default function App() {
                           Preparar integral no gráfico
                         </button>
                         <p className="calculator-keyboard-hint">
-                          Limites usam números, <i>π</i> e <i>e</i>. Em tipo I, as
-                          curvas dependem de <i>x</i>; em tipo II, de <i>y</i>. Depois,
-                          use “Calcular e visualizar” para formar a soma e os prismas.
+                          Limites usam números, <i>π</i> e <i>e</i>. Tipo I/II usam
+                          curvas; desigualdades definem <i>D</i> por <i>g(x,y) ≤ 0</i>.
+                          Depois, use “Calcular e visualizar” para formar a soma e os
+                          prismas.
                         </p>
                       </form>
                     ) : (

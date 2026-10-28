@@ -11,6 +11,7 @@ const HEIGHT = 160
 const PADDING = 14
 const SAMPLE_COUNT = 64
 const POLAR_SECTORS = 48
+const INEQUALITY_GRID = 48
 
 function toPoint(
   x: number,
@@ -79,6 +80,61 @@ function polygonPoints(draft: IntegralCalculatorDraft): string {
 }
 
 export default function RegionPreview({ draft }: RegionPreviewProps) {
+  if (draft.kind === 'inequality') {
+    const preview = (() => {
+      try {
+        const xMin = parseDomainBound(draft.xMin)
+        const xMax = parseDomainBound(draft.xMax)
+        const yMin = parseDomainBound(draft.yMin)
+        const yMax = parseDomainBound(draft.yMax)
+        const expression = compileExpression(draft.inequalityExpression)
+        const bounds = [xMin, xMax, yMin, yMax] as const
+        const dx = (xMax - xMin) / INEQUALITY_GRID
+        const dy = (yMax - yMin) / INEQUALITY_GRID
+        let cells = ''
+        for (let ix = 0; ix < INEQUALITY_GRID; ix += 1) {
+          const x = xMin + (ix + 0.5) * dx
+          for (let iy = 0; iy < INEQUALITY_GRID; iy += 1) {
+            const y = yMin + (iy + 0.5) * dy
+            if (expression.evaluate({ x, y }) > 0) continue
+            const p0 = toPoint(xMin + ix * dx, yMin + iy * dy, bounds)
+            const p1 = toPoint(xMin + (ix + 1) * dx, yMin + (iy + 1) * dy, bounds)
+            cells += `M${p0.x},${p1.y}H${p1.x}V${p0.y}H${p0.x}Z`
+          }
+        }
+        return { cells }
+      } catch {
+        return null
+      }
+    })()
+    return (
+      <svg
+        className="region-preview inequality-region-preview"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        role="img"
+        aria-label={
+          preview
+            ? `Prévia amostrada da região definida por ${draft.inequalityExpression} ≤ 0`
+            : 'Prévia aguardando limites válidos'
+        }
+      >
+        <line
+          x1={PADDING}
+          y1={HEIGHT - PADDING}
+          x2={WIDTH - PADDING}
+          y2={HEIGHT - PADDING}
+        />
+        <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} />
+        {preview && <path className="inequality-region-cells" d={preview.cells} />}
+        <text x={WIDTH - PADDING} y={HEIGHT - 2} textAnchor="end">
+          x
+        </text>
+        <text x={4} y={PADDING}>
+          y
+        </text>
+      </svg>
+    )
+  }
   if (draft.kind === 'polar') {
     const polar = (() => {
       try {

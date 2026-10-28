@@ -8,6 +8,7 @@ import type { VisualizableFunction } from '../core/functions/types'
 import { createExpressionFunction } from '../core/functions/expressionFunction'
 import { estimateObservedOrder, type ConvergencePoint } from '../core/quad/convergence'
 import {
+  integral2Inequality,
   integral2Polar,
   integral2TypeI,
   integral2TypeII,
@@ -36,6 +37,9 @@ export interface RiemannCalculationResult {
   readonly absoluteError: number
   readonly relativeError: number | null
   readonly referenceRefinementDifference: number
+  readonly referenceMethod:
+    'gauss-legendre' | 'polar-jacobian' | 'scan-bisection' | 'monte-carlo'
+  readonly referenceErrorEstimate: number | null
   readonly convergence: readonly ConvergencePoint[]
   readonly observedOrder: number | null
   readonly elapsedMs: number
@@ -101,11 +105,22 @@ export function calculateRiemannIntegral(
     }
     if (region.kind === 'typeI') return integral2TypeI(func.evaluate, region, order)
     if (region.kind === 'typeII') return integral2TypeII(func.evaluate, region, order)
-    return integral2Polar(func.evaluate, region, order)
+    if (region.kind === 'polar') return integral2Polar(func.evaluate, region, order)
+    return integral2Inequality(func.evaluate, region, {
+      xSlices: order === 32 ? 48 : 96,
+    }).value
   }
-  const referenceValue = integrate(64)
-  const referenceAt32 = integrate(32)
-  const referenceRefinementDifference = Math.abs(referenceValue - referenceAt32)
+  const inequalityRegion = region?.kind === 'inequality' ? region : null
+  const inequalityReference = inequalityRegion
+    ? integral2Inequality(func.evaluate, inequalityRegion)
+    : null
+  const referenceValue = inequalityReference?.value ?? integrate(64)
+  const referenceAt32 = inequalityRegion
+    ? integral2Inequality(func.evaluate, inequalityRegion, { xSlices: 48 }).value
+    : integrate(32)
+  const referenceRefinementDifference = inequalityReference
+    ? inequalityReference.errorEstimate
+    : Math.abs(referenceValue - referenceAt32)
   const convergenceNoiseFloor =
     64 * Number.EPSILON * Math.max(1, Math.abs(referenceValue))
   const convergenceSubdivisions = [4, 8, 16, 32, 64]
@@ -139,6 +154,12 @@ export function calculateRiemannIntegral(
     absoluteError,
     relativeError,
     referenceRefinementDifference,
+    referenceMethod: inequalityReference
+      ? inequalityReference.method
+      : region?.kind === 'polar'
+        ? 'polar-jacobian'
+        : 'gauss-legendre',
+    referenceErrorEstimate: inequalityReference?.errorEstimate ?? null,
     convergence,
     observedOrder: estimateObservedOrder(convergence),
     elapsedMs: performance.now() - startedAt,

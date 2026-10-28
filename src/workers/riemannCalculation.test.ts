@@ -173,4 +173,48 @@ describe('riemann calculation worker', () => {
     expect(gaussian.referenceValue).toBeCloseTo(Math.PI * (1 - Math.exp(-4)), 10)
     expect(Math.abs(calculate('x').referenceValue)).toBeLessThan(1e-12)
   })
+
+  it('calcula regiões implícitas por varredura e reporta estimativa de refinamento', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: '1',
+      domain: { x: { min: -1, max: 1 }, y: { min: -1, max: 1 } },
+      region: {
+        kind: 'inequality',
+        lowerExpression: '0',
+        upperExpression: '0',
+        inequalityExpression: 'x^2+y^2-1',
+        samplingMode: 'precise',
+      },
+      xSubdivisions: 32,
+      ySubdivisions: 32,
+    })
+
+    expect(result.referenceMethod).toBe('scan-bisection')
+    expect(result.referenceValue).toBeCloseTo(Math.PI, 3)
+    expect(result.referenceErrorEstimate).toBeGreaterThanOrEqual(0)
+    expect(result.value).toBeGreaterThan(2.8)
+    expect(result.value).toBeLessThan(3.4)
+  })
+
+  it('reporta Monte Carlo e erro padrão quando a desigualdade tem muitas oscilações', () => {
+    const result = calculateRiemannIntegral({
+      ...request,
+      expression: '1',
+      domain: { x: { min: 0, max: 1 }, y: { min: 0, max: 1 } },
+      region: {
+        kind: 'inequality',
+        lowerExpression: '0',
+        upperExpression: '0',
+        inequalityExpression: 'sin(200*y)',
+        samplingMode: 'center',
+      },
+      xSubdivisions: 16,
+      ySubdivisions: 16,
+    })
+
+    expect(result.referenceMethod).toBe('monte-carlo')
+    expect(result.referenceValue).toBeCloseTo(0.5, 2)
+    expect(result.referenceErrorEstimate).toBeGreaterThan(0)
+  })
 })

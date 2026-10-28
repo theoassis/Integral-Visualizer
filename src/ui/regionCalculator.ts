@@ -3,7 +3,8 @@ import type { VisualizableFunction } from '../core/functions/types'
 import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 import { parseDomainBound } from './domainBound'
 
-export type IntegralRegionKind = 'rectangle' | 'typeI' | 'typeII' | 'polar'
+export type IntegralRegionKind =
+  'rectangle' | 'typeI' | 'typeII' | 'polar' | 'inequality'
 
 export interface IntegralCalculatorDraft {
   readonly expression: string
@@ -19,6 +20,7 @@ export interface IntegralCalculatorDraft {
   readonly rMax: string
   readonly thetaMin: string
   readonly thetaMax: string
+  readonly inequalityExpression: string
 }
 
 export interface PreparedIntegral {
@@ -72,6 +74,33 @@ export function prepareIntegralCalculatorDraft(
         upperExpression: draft.rMax,
         radiusBounds: [rMin, rMax],
         thetaBounds: [thetaMin, thetaMax],
+        samplingMode: draft.samplingMode,
+      },
+    }
+  }
+
+  if (draft.kind === 'inequality') {
+    const expression = compileExpression(draft.inequalityExpression)
+    if (expression.variables.some((name) => name !== 'x' && name !== 'y')) {
+      throw new RangeError('A desigualdade pode depender somente de x e y.')
+    }
+    for (let ix = 0; ix <= 32; ix += 1) {
+      const x = xMin + ((xMax - xMin) * ix) / 32
+      for (let iy = 0; iy <= 32; iy += 1) {
+        const y = yMin + ((yMax - yMin) * iy) / 32
+        if (!Number.isFinite(expression.evaluate({ x, y }))) {
+          throw new RangeError(`A desigualdade não é finita em (${x}, ${y}).`)
+        }
+      }
+    }
+    return {
+      expression: draft.expression.trim(),
+      domain: { x: { min: xMin, max: xMax }, y: { min: yMin, max: yMax } },
+      region: {
+        kind: 'inequality',
+        lowerExpression: '0',
+        upperExpression: '0',
+        inequalityExpression: expression.source,
         samplingMode: draft.samplingMode,
       },
     }

@@ -84,6 +84,10 @@ export default function RiemannPanel({
             <>
               ∫∫<sub>tipo II</sub> f dA
             </>
+          ) : region?.kind === 'polar' ? (
+            <>
+              ∫<sub>θ</sub>∫<sub>r</sub> f(r cos θ, r sin θ) r dr dθ
+            </>
           ) : (
             <>
               ∬<sub>D</sub> f(x, y) dA ≈ ∑ f(x*, y*) ΔA
@@ -136,9 +140,11 @@ export default function RiemannPanel({
       </label>
       {region && (
         <p className="riemann-help" role="status">
-          {region.samplingMode === 'center'
-            ? 'Modo “centro dentro”: cada célula conta inteira somente se seu centro estiver na região. As células de fronteira podem causar erro visível.'
-            : 'Modo ponderado: cada célula usa a fração coberta estimada por subamostragem 8×8. É uma aproximação geométrica da fronteira.'}
+          {region.kind === 'polar'
+            ? 'Região polar: a referência aplica (x,y)=(r cos θ,r sin θ) e o jacobiano r. Os prismas são a aproximação cartesiana da região; a prévia anima a decomposição em setores.'
+            : region.samplingMode === 'center'
+              ? 'Modo “centro dentro”: cada célula conta inteira somente se seu centro estiver na região. As células de fronteira podem causar erro visível.'
+              : 'Modo ponderado: cada célula usa a fração coberta estimada por subamostragem 8×8. É uma aproximação geométrica da fronteira.'}
         </p>
       )}
 

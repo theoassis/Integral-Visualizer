@@ -1,16 +1,18 @@
 import type { Integrand2D, Interval } from '../quad/iterated'
 import { compileExpression } from '../expr/codegen'
-import { createTypeIRegion, createTypeIIRegion } from './regions'
-import type { TypeIRegion, TypeIIRegion } from './regions'
+import { createPolarRegion, createTypeIRegion, createTypeIIRegion } from './regions'
+import type { PolarRegion, TypeIRegion, TypeIIRegion } from './regions'
 
 export type RegionSamplingMode = 'center' | 'precise'
-export type IntegrationRegion = TypeIRegion | TypeIIRegion
+export type IntegrationRegion = TypeIRegion | TypeIIRegion | PolarRegion
 
 export interface RegionExpressionDefinition {
-  readonly kind: 'typeI' | 'typeII'
+  readonly kind: 'typeI' | 'typeII' | 'polar'
   readonly lowerExpression: string
   readonly upperExpression: string
   readonly samplingMode: RegionSamplingMode
+  readonly radiusBounds?: Interval
+  readonly thetaBounds?: Interval
 }
 
 export interface RegionRiemannGrid {
@@ -37,6 +39,12 @@ export function createRegionFromExpressions(
   xBounds: Interval,
   yBounds: Interval,
 ): IntegrationRegion {
+  if (definition.kind === 'polar') {
+    if (!definition.radiusBounds || !definition.thetaBounds) {
+      throw new RangeError('A região polar precisa dos limites de r e θ.')
+    }
+    return createPolarRegion(definition.radiusBounds, definition.thetaBounds)
+  }
   const variable = definition.kind === 'typeI' ? 'x' : 'y'
   const compileBoundary = (source: string) => {
     const expression = compileExpression(source)

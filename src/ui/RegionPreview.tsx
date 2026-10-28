@@ -10,6 +10,7 @@ const WIDTH = 320
 const HEIGHT = 160
 const PADDING = 14
 const SAMPLE_COUNT = 64
+const POLAR_SECTORS = 48
 
 function toPoint(
   x: number,
@@ -78,6 +79,93 @@ function polygonPoints(draft: IntegralCalculatorDraft): string {
 }
 
 export default function RegionPreview({ draft }: RegionPreviewProps) {
+  if (draft.kind === 'polar') {
+    const polar = (() => {
+      try {
+        const radius = parseDomainBound(draft.rMax)
+        const innerRadius = parseDomainBound(draft.rMin)
+        const thetaMin = parseDomainBound(draft.thetaMin)
+        const thetaMax = parseDomainBound(draft.thetaMax)
+        if (
+          radius <= 0 ||
+          innerRadius < 0 ||
+          innerRadius >= radius ||
+          thetaMax <= thetaMin ||
+          thetaMax - thetaMin > 2 * Math.PI
+        )
+          return null
+        const center = { x: WIDTH / 2, y: HEIGHT / 2 }
+        const scale = (Math.min(WIDTH, HEIGHT) / 2 - PADDING) / radius
+        const pointAt = (r: number, theta: number) => ({
+          x: center.x + r * scale * Math.cos(theta),
+          y: center.y - r * scale * Math.sin(theta),
+        })
+        const wedges = Array.from({ length: POLAR_SECTORS }, (_, index) => {
+          const start = thetaMin + ((thetaMax - thetaMin) * index) / POLAR_SECTORS
+          const end = thetaMin + ((thetaMax - thetaMin) * (index + 1)) / POLAR_SECTORS
+          const outer = [pointAt(radius, start), pointAt(radius, end)]
+          const inner =
+            innerRadius === 0
+              ? [center]
+              : [pointAt(innerRadius, end), pointAt(innerRadius, start)]
+          return [...outer, ...inner].map(({ x, y }) => `${x},${y}`).join(' ')
+        })
+        return {
+          center,
+          radius: radius * scale,
+          innerRadius: innerRadius * scale,
+          wedges,
+        }
+      } catch {
+        return null
+      }
+    })()
+    return (
+      <svg
+        className="region-preview polar-region-preview"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        role="img"
+        aria-label={
+          polar
+            ? 'Prévia polar da região com decomposição animada em setores'
+            : 'Prévia polar aguardando limites válidos'
+        }
+      >
+        <line x1={PADDING} y1={HEIGHT / 2} x2={WIDTH - PADDING} y2={HEIGHT / 2} />
+        <line x1={WIDTH / 2} y1={PADDING} x2={WIDTH / 2} y2={HEIGHT - PADDING} />
+        {polar?.wedges.map((points, index) => (
+          <polygon
+            className="polar-sector"
+            style={{ animationDelay: `${index * 18}ms` }}
+            key={index}
+            points={points}
+          />
+        ))}
+        {polar && (
+          <circle
+            className="polar-boundary"
+            cx={polar.center.x}
+            cy={polar.center.y}
+            r={polar.radius}
+          />
+        )}
+        {polar && polar.innerRadius > 0 && (
+          <circle
+            className="polar-boundary"
+            cx={polar.center.x}
+            cy={polar.center.y}
+            r={polar.innerRadius}
+          />
+        )}
+        <text x={WIDTH - PADDING} y={HEIGHT / 2 - 4} textAnchor="end">
+          x
+        </text>
+        <text x={WIDTH / 2 + 6} y={PADDING + 8}>
+          y
+        </text>
+      </svg>
+    )
+  }
   const points = (() => {
     try {
       return polygonPoints(draft)

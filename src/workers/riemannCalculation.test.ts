@@ -140,4 +140,37 @@ describe('riemann calculation worker', () => {
     expect(result.referenceValue).toBeCloseTo(0.5, 14)
     expect(result.grid.cellFractions).toHaveLength(4)
   })
+
+  it('calcula A7–A9 com referência polar e jacobiano r', () => {
+    const polarRegion = {
+      kind: 'polar' as const,
+      lowerExpression: '0',
+      upperExpression: '1',
+      radiusBounds: [0, 1] as const,
+      thetaBounds: [0, 2 * Math.PI] as const,
+      samplingMode: 'precise' as const,
+    }
+    const domain = { x: { min: -1, max: 1 }, y: { min: -1, max: 1 } }
+    const calculate = (expression: string) =>
+      calculateRiemannIntegral({
+        ...request,
+        expression,
+        domain,
+        region: polarRegion,
+        xSubdivisions: 32,
+        ySubdivisions: 32,
+      })
+
+    expect(calculate('1-x^2-y^2').referenceValue).toBeCloseTo(Math.PI / 2, 10)
+    const gaussian = calculateRiemannIntegral({
+      ...request,
+      expression: 'exp(-(x^2+y^2))',
+      domain: { x: { min: -2, max: 2 }, y: { min: -2, max: 2 } },
+      region: { ...polarRegion, radiusBounds: [0, 2] },
+      xSubdivisions: 32,
+      ySubdivisions: 32,
+    })
+    expect(gaussian.referenceValue).toBeCloseTo(Math.PI * (1 - Math.exp(-4)), 10)
+    expect(Math.abs(calculate('x').referenceValue)).toBeLessThan(1e-12)
+  })
 })

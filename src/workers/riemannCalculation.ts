@@ -7,7 +7,11 @@ import { integral2Rectangular as integrateByGauss } from '../core/quad/iterated'
 import type { VisualizableFunction } from '../core/functions/types'
 import { createExpressionFunction } from '../core/functions/expressionFunction'
 import { estimateObservedOrder, type ConvergencePoint } from '../core/quad/convergence'
-import { integral2TypeI, integral2TypeII } from '../core/regions/regions'
+import {
+  integral2Polar,
+  integral2TypeI,
+  integral2TypeII,
+} from '../core/regions/regions'
 import {
   createRegionFromExpressions,
   riemann2OverRegion,
@@ -95,9 +99,9 @@ export function calculateRiemannIntegral(
     if (!request.region || !region) {
       return integrateByGauss(func.evaluate, xBounds, yBounds, order)
     }
-    return region.kind === 'typeI'
-      ? integral2TypeI(func.evaluate, region, order)
-      : integral2TypeII(func.evaluate, region, order)
+    if (region.kind === 'typeI') return integral2TypeI(func.evaluate, region, order)
+    if (region.kind === 'typeII') return integral2TypeII(func.evaluate, region, order)
+    return integral2Polar(func.evaluate, region, order)
   }
   const referenceValue = integrate(64)
   const referenceAt32 = integrate(32)

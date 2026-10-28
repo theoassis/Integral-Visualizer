@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { integral2DiskPolar, integral2Rectangular } from './iterated'
+import { createPolarRegion, integral2Polar } from '../regions/regions'
 
 function expectRelativeError(value: number, exact: number, tolerance: number) {
   const relativeError = Math.abs(value - exact) / Math.abs(exact)
@@ -87,5 +88,39 @@ describe('integral2DiskPolar', () => {
     expect(() => integral2DiskPolar(() => 1, 0)).toThrow(RangeError)
     expect(() => integral2DiskPolar(() => 1, -1)).toThrow(RangeError)
     expect(() => integral2DiskPolar(() => 1, Infinity)).toThrow(RangeError)
+  })
+})
+
+describe('integrais em coordenadas polares', () => {
+  const disk = createPolarRegion([0, 1], [0, 2 * Math.PI])
+
+  it('reproduz A7: volume sob 1−x²−y² no disco unitário é π/2', () => {
+    expect(integral2Polar((x, y) => 1 - x ** 2 - y ** 2, disk, 8)).toBeCloseTo(
+      Math.PI / 2,
+      12,
+    )
+  })
+
+  it('reproduz A8: integral gaussiana no disco de raio 2', () => {
+    const value = integral2Polar(
+      (x, y) => Math.exp(-(x ** 2 + y ** 2)),
+      createPolarRegion([0, 2], [0, 2 * Math.PI]),
+      40,
+    )
+    expect(value).toBeCloseTo(Math.PI * (1 - Math.exp(-4)), 12)
+  })
+
+  it('reproduz A9: a integral de x no disco unitário é zero por simetria', () => {
+    expect(Math.abs(integral2Polar((x) => x, disk, 32))).toBeLessThan(1e-12)
+  })
+
+  it('integra setores parciais e preserva o jacobiano r', () => {
+    const quarterDisk = createPolarRegion([0, 1], [0, Math.PI / 2])
+    expect(integral2Polar(() => 1, quarterDisk, 8)).toBeCloseTo(Math.PI / 4, 12)
+  })
+
+  it('rejeita abertura angular maior que uma volta ou raios inválidos', () => {
+    expect(() => createPolarRegion([-1, 1], [0, Math.PI])).toThrow(RangeError)
+    expect(() => createPolarRegion([0, 1], [0, 3 * Math.PI])).toThrow(RangeError)
   })
 })

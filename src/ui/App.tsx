@@ -49,7 +49,8 @@ const DEFAULT_DOMAIN_DRAFT = {
 }
 type DomainField = keyof typeof DEFAULT_DOMAIN_DRAFT
 type CalculatorTab = '123' | 'f(x)' | '∬' | 'ABC'
-type IntegralBoundField = 'xMin' | 'xMax' | 'yMin' | 'yMax'
+type IntegralBoundField =
+  'xMin' | 'xMax' | 'yMin' | 'yMax' | 'rMin' | 'rMax' | 'thetaMin' | 'thetaMax'
 type CalculatorKey = {
   label: string
   token: string
@@ -166,6 +167,10 @@ export default function App() {
     lowerExpression: '0',
     upperExpression: 'x',
     samplingMode: 'center',
+    rMin: '0',
+    rMax: '1',
+    thetaMin: '0',
+    thetaMax: '2*pi',
   })
   const [integralDraftError, setIntegralDraftError] = useState<string | null>(null)
   const [integralBoundField, setIntegralBoundField] =
@@ -519,6 +524,10 @@ export default function App() {
         lowerExpression: '0',
         upperExpression: 'x',
         samplingMode: 'center',
+        rMin: '0',
+        rMax: '1',
+        thetaMin: '0',
+        thetaMax: '2*pi',
       })
       invalidateRiemannResult()
       setRiemannRegion(null)
@@ -544,10 +553,10 @@ export default function App() {
       setRiemannRegion(prepared.region)
       setFormulaDraft(prepared.expression)
       setDomainDraft({
-        xMin: integralDraft.xMin,
-        xMax: integralDraft.xMax,
-        yMin: integralDraft.yMin,
-        yMax: integralDraft.yMax,
+        xMin: String(prepared.domain.x.min),
+        xMax: String(prepared.domain.x.max),
+        yMin: String(prepared.domain.y.min),
+        yMax: String(prepared.domain.y.max),
       })
       setFormulaError(null)
       setIntegralDraftError(null)
@@ -848,6 +857,14 @@ export default function App() {
                                     : kind === 'typeI'
                                       ? 'x'
                                       : current.upperExpression,
+                                ...(kind === 'polar'
+                                  ? {
+                                      rMin: '0',
+                                      rMax: '1',
+                                      thetaMin: '0',
+                                      thetaMax: '2*pi',
+                                    }
+                                  : {}),
                               }))
                               setIntegralDraftError(null)
                             }}
@@ -855,98 +872,156 @@ export default function App() {
                             <option value="rectangle">Retângulo</option>
                             <option value="typeI">Tipo I · limites em y</option>
                             <option value="typeII">Tipo II · limites em x</option>
+                            <option value="polar">Polar · setores e Jacobiano r</option>
                           </select>
                         </label>
-                        <div className="integral-bounds-grid">
-                          <label>
-                            {integralDraft.kind === 'typeI'
-                              ? 'x mínimo externo'
-                              : integralDraft.kind === 'typeII'
-                                ? 'x mínimo da janela'
-                                : 'x mínimo'}
-                            <input
-                              value={integralDraft.xMin}
-                              onFocus={() => setIntegralBoundField('xMin')}
-                              onChange={(event) =>
-                                setIntegralDraft({
-                                  ...integralDraft,
-                                  xMin: event.currentTarget.value,
-                                })
-                              }
-                              aria-label={
-                                integralDraft.kind === 'typeII'
-                                  ? 'Limite esquerdo da janela gráfica em x'
-                                  : 'Limite inferior de x'
-                              }
-                            />
-                          </label>
-                          <label>
-                            {integralDraft.kind === 'typeI'
-                              ? 'x máximo externo'
-                              : integralDraft.kind === 'typeII'
-                                ? 'x máximo da janela'
-                                : 'x máximo'}
-                            <input
-                              value={integralDraft.xMax}
-                              onFocus={() => setIntegralBoundField('xMax')}
-                              onChange={(event) =>
-                                setIntegralDraft({
-                                  ...integralDraft,
-                                  xMax: event.currentTarget.value,
-                                })
-                              }
-                              aria-label={
-                                integralDraft.kind === 'typeII'
-                                  ? 'Limite direito da janela gráfica em x'
-                                  : 'Limite superior de x'
-                              }
-                            />
-                          </label>
-                          <label>
-                            {integralDraft.kind === 'typeII'
-                              ? 'y mínimo externo'
-                              : integralDraft.kind === 'typeI'
-                                ? 'y mínimo da janela'
-                                : 'y mínimo'}
-                            <input
-                              value={integralDraft.yMin}
-                              onFocus={() => setIntegralBoundField('yMin')}
-                              onChange={(event) =>
-                                setIntegralDraft({
-                                  ...integralDraft,
-                                  yMin: event.currentTarget.value,
-                                })
-                              }
-                              aria-label={
-                                integralDraft.kind === 'typeI'
-                                  ? 'Limite inferior da janela gráfica em y'
-                                  : 'Limite inferior de y'
-                              }
-                            />
-                          </label>
-                          <label>
-                            {integralDraft.kind === 'typeII'
-                              ? 'y máximo externo'
-                              : integralDraft.kind === 'typeI'
-                                ? 'y máximo da janela'
-                                : 'y máximo'}
-                            <input
-                              value={integralDraft.yMax}
-                              onFocus={() => setIntegralBoundField('yMax')}
-                              onChange={(event) =>
-                                setIntegralDraft({
-                                  ...integralDraft,
-                                  yMax: event.currentTarget.value,
-                                })
-                              }
-                              aria-label={
-                                integralDraft.kind === 'typeI'
-                                  ? 'Limite superior da janela gráfica em y'
-                                  : 'Limite superior de y'
-                              }
-                            />
-                          </label>
-                        </div>
+                        {integralDraft.kind === 'polar' ? (
+                          <div className="integral-bounds-grid">
+                            <label>
+                              r mínimo
+                              <input
+                                value={integralDraft.rMin}
+                                onFocus={() => setIntegralBoundField('rMin')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    rMin: event.currentTarget.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              r máximo
+                              <input
+                                value={integralDraft.rMax}
+                                onFocus={() => setIntegralBoundField('rMax')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    rMax: event.currentTarget.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              θ mínimo
+                              <input
+                                value={integralDraft.thetaMin}
+                                onFocus={() => setIntegralBoundField('thetaMin')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    thetaMin: event.currentTarget.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              θ máximo
+                              <input
+                                value={integralDraft.thetaMax}
+                                onFocus={() => setIntegralBoundField('thetaMax')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    thetaMax: event.currentTarget.value,
+                                  })
+                                }
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="integral-bounds-grid">
+                            <label>
+                              {integralDraft.kind === 'typeI'
+                                ? 'x mínimo externo'
+                                : integralDraft.kind === 'typeII'
+                                  ? 'x mínimo da janela'
+                                  : 'x mínimo'}
+                              <input
+                                value={integralDraft.xMin}
+                                onFocus={() => setIntegralBoundField('xMin')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    xMin: event.currentTarget.value,
+                                  })
+                                }
+                                aria-label={
+                                  integralDraft.kind === 'typeII'
+                                    ? 'Limite esquerdo da janela gráfica em x'
+                                    : 'Limite inferior de x'
+                                }
+                              />
+                            </label>
+                            <label>
+                              {integralDraft.kind === 'typeI'
+                                ? 'x máximo externo'
+                                : integralDraft.kind === 'typeII'
+                                  ? 'x máximo da janela'
+                                  : 'x máximo'}
+                              <input
+                                value={integralDraft.xMax}
+                                onFocus={() => setIntegralBoundField('xMax')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    xMax: event.currentTarget.value,
+                                  })
+                                }
+                                aria-label={
+                                  integralDraft.kind === 'typeII'
+                                    ? 'Limite direito da janela gráfica em x'
+                                    : 'Limite superior de x'
+                                }
+                              />
+                            </label>
+                            <label>
+                              {integralDraft.kind === 'typeII'
+                                ? 'y mínimo externo'
+                                : integralDraft.kind === 'typeI'
+                                  ? 'y mínimo da janela'
+                                  : 'y mínimo'}
+                              <input
+                                value={integralDraft.yMin}
+                                onFocus={() => setIntegralBoundField('yMin')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    yMin: event.currentTarget.value,
+                                  })
+                                }
+                                aria-label={
+                                  integralDraft.kind === 'typeI'
+                                    ? 'Limite inferior da janela gráfica em y'
+                                    : 'Limite inferior de y'
+                                }
+                              />
+                            </label>
+                            <label>
+                              {integralDraft.kind === 'typeII'
+                                ? 'y máximo externo'
+                                : integralDraft.kind === 'typeI'
+                                  ? 'y máximo da janela'
+                                  : 'y máximo'}
+                              <input
+                                value={integralDraft.yMax}
+                                onFocus={() => setIntegralBoundField('yMax')}
+                                onChange={(event) =>
+                                  setIntegralDraft({
+                                    ...integralDraft,
+                                    yMax: event.currentTarget.value,
+                                  })
+                                }
+                                aria-label={
+                                  integralDraft.kind === 'typeI'
+                                    ? 'Limite superior da janela gráfica em y'
+                                    : 'Limite superior de y'
+                                }
+                              />
+                            </label>
+                          </div>
+                        )}
                         <div
                           className="integral-bound-presets"
                           role="group"
@@ -969,67 +1044,77 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                        {integralDraft.kind !== 'rectangle' && (
-                          <>
-                            <div className="integral-bounds-grid integral-curve-grid">
-                              <label>
-                                {integralDraft.kind === 'typeI'
-                                  ? 'y inferior'
-                                  : 'x inferior'}
-                                <input
-                                  value={integralDraft.lowerExpression}
+                        {integralDraft.kind !== 'rectangle' &&
+                          integralDraft.kind !== 'polar' && (
+                            <>
+                              <div className="integral-bounds-grid integral-curve-grid">
+                                <label>
+                                  {integralDraft.kind === 'typeI'
+                                    ? 'y inferior'
+                                    : 'x inferior'}
+                                  <input
+                                    value={integralDraft.lowerExpression}
+                                    onChange={(event) =>
+                                      setIntegralDraft({
+                                        ...integralDraft,
+                                        lowerExpression: event.currentTarget.value,
+                                      })
+                                    }
+                                    placeholder={
+                                      integralDraft.kind === 'typeI' ? '0' : 'y'
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  {integralDraft.kind === 'typeI'
+                                    ? 'y superior'
+                                    : 'x superior'}
+                                  <input
+                                    value={integralDraft.upperExpression}
+                                    onChange={(event) =>
+                                      setIntegralDraft({
+                                        ...integralDraft,
+                                        upperExpression: event.currentTarget.value,
+                                      })
+                                    }
+                                    placeholder={
+                                      integralDraft.kind === 'typeI' ? 'x' : '1'
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              <label className="integral-calculator-field">
+                                Amostragem da região
+                                <select
+                                  value={integralDraft.samplingMode}
                                   onChange={(event) =>
                                     setIntegralDraft({
                                       ...integralDraft,
-                                      lowerExpression: event.currentTarget.value,
+                                      samplingMode: event.currentTarget.value as
+                                        'center' | 'precise',
                                     })
                                   }
-                                  placeholder={
-                                    integralDraft.kind === 'typeI' ? '0' : 'y'
-                                  }
-                                />
+                                >
+                                  <option value="center">Centro dentro</option>
+                                  <option value="precise">
+                                    Ponderar fração da célula
+                                  </option>
+                                </select>
                               </label>
-                              <label>
-                                {integralDraft.kind === 'typeI'
-                                  ? 'y superior'
-                                  : 'x superior'}
-                                <input
-                                  value={integralDraft.upperExpression}
-                                  onChange={(event) =>
-                                    setIntegralDraft({
-                                      ...integralDraft,
-                                      upperExpression: event.currentTarget.value,
-                                    })
-                                  }
-                                  placeholder={
-                                    integralDraft.kind === 'typeI' ? 'x' : '1'
-                                  }
-                                />
-                              </label>
-                            </div>
-                            <label className="integral-calculator-field">
-                              Amostragem da região
-                              <select
-                                value={integralDraft.samplingMode}
-                                onChange={(event) =>
-                                  setIntegralDraft({
-                                    ...integralDraft,
-                                    samplingMode: event.currentTarget.value as
-                                      'center' | 'precise',
-                                  })
-                                }
-                              >
-                                <option value="center">Centro dentro</option>
-                                <option value="precise">
-                                  Ponderar fração da célula
-                                </option>
-                              </select>
-                            </label>
-                          </>
-                        )}
+                            </>
+                          )}
                         <RegionPreview draft={integralDraft} />
                         <p className="integral-notation" aria-live="polite">
-                          {integralDraft.kind === 'typeII' ? (
+                          {integralDraft.kind === 'polar' ? (
+                            <code>
+                              ∫<sub>{integralDraft.thetaMin}</sub>
+                              <sup>{integralDraft.thetaMax}</sup> ∫
+                              <sub>{integralDraft.rMin}</sub>
+                              <sup>{integralDraft.rMax}</sup>{' '}
+                              {integralDraft.expression || 'f(r cos θ, r sin θ)'} · r dr
+                              dθ
+                            </code>
+                          ) : integralDraft.kind === 'typeII' ? (
                             <code>
                               ∫<sub>{integralDraft.yMin}</sub>
                               <sup>{integralDraft.yMax}</sup> ∫

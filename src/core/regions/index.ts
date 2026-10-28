@@ -1,6 +1,8 @@
 export {
   createTypeIRegion,
   createTypeIIRegion,
+  createPolarRegion,
+  integral2Polar,
   integral2TypeI,
   integral2TypeII,
 } from './regions'
@@ -11,4 +13,4 @@ export type {
   RegionRiemannGrid,
   RegionSamplingMode,
 } from './riemannRegion'
-export type { TypeIRegion, TypeIIRegion } from './regions'
+export type { PolarRegion, TypeIRegion, TypeIIRegion } from './regions'

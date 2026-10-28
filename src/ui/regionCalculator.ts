@@ -3,7 +3,7 @@ import type { VisualizableFunction } from '../core/functions/types'
 import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 import { parseDomainBound } from './domainBound'
 
-export type IntegralRegionKind = 'rectangle' | 'typeI' | 'typeII'
+export type IntegralRegionKind = 'rectangle' | 'typeI' | 'typeII' | 'polar'
 
 export interface IntegralCalculatorDraft {
   readonly expression: string
@@ -15,6 +15,10 @@ export interface IntegralCalculatorDraft {
   readonly lowerExpression: string
   readonly upperExpression: string
   readonly samplingMode: 'center' | 'precise'
+  readonly rMin: string
+  readonly rMax: string
+  readonly thetaMin: string
+  readonly thetaMax: string
 }
 
 export interface PreparedIntegral {
@@ -40,6 +44,36 @@ export function prepareIntegralCalculatorDraft(
       expression: draft.expression.trim(),
       domain: { x: { min: xMin, max: xMax }, y: { min: yMin, max: yMax } },
       region: null,
+    }
+  }
+
+  if (draft.kind === 'polar') {
+    const rMin = parseDomainBound(draft.rMin)
+    const rMax = parseDomainBound(draft.rMax)
+    const thetaMin = parseDomainBound(draft.thetaMin)
+    const thetaMax = parseDomainBound(draft.thetaMax)
+    if (rMin < 0 || rMin >= rMax) {
+      throw new RangeError(
+        'Os limites radiais devem satisfazer 0 ≤ r mínimo < r máximo.',
+      )
+    }
+    if (thetaMin >= thetaMax || thetaMax - thetaMin > 2 * Math.PI) {
+      throw new RangeError('Os limites angulares devem crescer e cobrir no máximo 2π.')
+    }
+    return {
+      expression: draft.expression.trim(),
+      domain: {
+        x: { min: -rMax, max: rMax },
+        y: { min: -rMax, max: rMax },
+      },
+      region: {
+        kind: 'polar',
+        lowerExpression: draft.rMin,
+        upperExpression: draft.rMax,
+        radiusBounds: [rMin, rMax],
+        thetaBounds: [thetaMin, thetaMax],
+        samplingMode: draft.samplingMode,
+      },
     }
   }
 

@@ -23,6 +23,12 @@ export interface TypeIIRegion extends RegionBase {
   readonly xBounds: (y: number) => Interval
 }
 
+export interface PolarRegion extends RegionBase {
+  readonly kind: 'polar'
+  readonly radiusBounds: Interval
+  readonly thetaBounds: Interval
+}
+
 function assertInterval(interval: Interval, description: string): void {
   if (
     interval.length !== 2 ||
@@ -82,6 +88,42 @@ export function createTypeIIRegion(
       } catch {
         return false
       }
+    },
+  })
+}
+
+/** Polar sector with 0 ≤ rMin ≤ r ≤ rMax and thetaMin ≤ θ ≤ thetaMax. */
+export function createPolarRegion(
+  radiusBounds: Interval,
+  thetaBounds: Interval,
+): PolarRegion {
+  assertInterval(radiusBounds, 'Os limites radiais')
+  assertInterval(thetaBounds, 'Os limites angulares')
+  if (radiusBounds[0] < 0 || radiusBounds[0] === radiusBounds[1]) {
+    throw new RangeError('Os raios devem ser não negativos e crescentes.')
+  }
+  if (
+    thetaBounds[0] === thetaBounds[1] ||
+    thetaBounds[1] - thetaBounds[0] > 2 * Math.PI
+  ) {
+    throw new RangeError('A abertura angular deve ser maior que zero e no máximo 2π.')
+  }
+  const [thetaStart, thetaEnd] = thetaBounds
+  const angleSpan = thetaEnd - thetaStart
+  return Object.freeze({
+    kind: 'polar' as const,
+    radiusBounds: Object.freeze([...radiusBounds]) as unknown as Interval,
+    thetaBounds: Object.freeze([...thetaBounds]) as unknown as Interval,
+    bounds: () => radiusBounds,
+    contains: (x: number, y: number) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+      const radius = Math.hypot(x, y)
+      if (radius < radiusBounds[0] || radius > radiusBounds[1]) return false
+      if (radius === 0) return true
+      const angle = Math.atan2(y, x)
+      const offset =
+        (((angle - thetaStart) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+      return offset <= angleSpan + 16 * Number.EPSILON
     },
   })
 }
@@ -146,4 +188,18 @@ export function integral2TypeII(
   order = 32,
 ): number {
   return integrateOverRegion(region.yBounds, region.xBounds, (y, x) => f(x, y), order)
+}
+
+/** Integrates over a polar sector; the area element includes the Jacobian r. */
+export function integral2Polar(
+  f: Integrand2D,
+  region: PolarRegion,
+  order = 32,
+): number {
+  return integrateOverRegion(
+    region.thetaBounds,
+    () => region.radiusBounds,
+    (theta, radius) => f(radius * Math.cos(theta), radius * Math.sin(theta)) * radius,
+    order,
+  )
 }

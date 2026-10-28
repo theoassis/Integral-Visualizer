@@ -14,6 +14,10 @@ const baseDraft: IntegralCalculatorDraft = {
   lowerExpression: '0',
   upperExpression: 'x',
   samplingMode: 'center',
+  rMin: '0',
+  rMax: '1',
+  thetaMin: '0',
+  thetaMax: '2*pi',
 }
 
 describe('construtor da integral dupla', () => {
@@ -61,5 +65,24 @@ describe('construtor da integral dupla', () => {
     expect(() =>
       prepareIntegralCalculatorDraft({ ...baseDraft, upperExpression: '2*x' }),
     ).toThrow(/janela gráfica/)
+  })
+
+  it('prepara disco polar, limites do domínio e jacobiano angular/radial', () => {
+    const result = prepareIntegralCalculatorDraft({ ...baseDraft, kind: 'polar' })
+    expect(result.domain).toEqual({ x: { min: -1, max: 1 }, y: { min: -1, max: 1 } })
+    expect(result.region).toMatchObject({
+      kind: 'polar',
+      radiusBounds: [0, 1],
+      thetaBounds: [0, 2 * Math.PI],
+    })
+  })
+
+  it('rejeita região polar com raio negativo ou ângulo acima de 2π', () => {
+    expect(() =>
+      prepareIntegralCalculatorDraft({ ...baseDraft, kind: 'polar', rMin: '-1' }),
+    ).toThrow(/radiais/)
+    expect(() =>
+      prepareIntegralCalculatorDraft({ ...baseDraft, kind: 'polar', thetaMax: '3*pi' }),
+    ).toThrow(/angulares/)
   })
 })

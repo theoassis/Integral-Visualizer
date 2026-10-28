@@ -7,10 +7,10 @@
 ## Resumo atual
 
 - **Fase atual:** 3 — Regiões gerais e polares (MVP)
-- **Tarefa atual:** F3-T2 concluída; F3-T3 (regiões polares e Jacobiano) é a próxima.
-- **Última sessão:** 2026-10-26 — calculadora de integrais duplas, prévia da região e prismas com máscara de área.
-- **Estado dos testes:** `pnpm exec vitest run` — 149 testes passando (18 arquivos, 0 falhas).
-- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram; chunk inicial 1.541,81 kB (421,17 kB gzip) e Worker 686,92 kB. Testes: 149/149.
+- **Tarefa atual:** F3-T3 concluída; F3-T4 (região por desigualdades) é a próxima.
+- **Última sessão:** 2026-10-27 — regiões polares configuráveis, Jacobiano `r`, prévia animada por setores e validação de A7–A9.
+- **Estado dos testes:** `pnpm test` — 157 testes passando (18 arquivos, 0 falhas).
+- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint` e `pnpm format:check` passaram; chunk inicial 1.545,25 kB (422,12 kB gzip) e Worker 687,84 kB. Testes: 157/157.
 - **Último commit de implementação:** `4269767 feat: add double integral region calculator` (enviado a `origin/main`).
 
 ## Painel de fases
@@ -51,7 +51,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F2-T6 | Convergência, sólido e exemplos                            | ✅     | Gráfico log-log e inclinação estimada; sólido assinado da malha; quatro presets; A4 no disco unitário via coordenadas polares; documentação em `docs/f2-t5-riemann.md`; commit `b6578a2`.              |
 | F3-T1 | Regiões tipo I/II e integração iterada                     | ✅     | Núcleo com limites externos/internos, `contains`, consulta de limites e quadratura de Gauss; A5 = 1/3, A6 = 3/10 e equivalência do triângulo nas duas ordens cobertos por testes.                      |
 | F3-T2 | Prévia da região e prismas restritos                       | ✅     | Calculadora ∬ com retângulo/tipo I/tipo II, prévia 2D, modos “centro dentro” e área ponderada 8×8; prismas fora da região omitidos e bases parciais escaladas pela fração estimada.                    |
-| F3-T3 | Região polar e Jacobiano r                                 | ⬜     | Próxima tarefa.                                                                                                                                                                                        |
+| F3-T3 | Região polar e Jacobiano r                                 | ✅     | Calculadora aceita limites radiais e angulares; quadratura de referência aplica `r`, prévia anima setores e Worker mantém prismas aproximados. A4 e A7–A9 passam.                                      |
 | F3-T4 | Regiões por desigualdades                                  | ⬜     | Pendente: varredura/bissecção e fallback Monte Carlo.                                                                                                                                                  |
 | F3-T5 | Mudança da ordem de integração                             | ⬜     | Pendente: conversão I↔II com validação numérica.                                                                                                                                                       |
 | F3-T6 | Grandezas físicas sobre regiões                            | ⬜     | Pendente: massa, centro de massa, momentos, valor médio e área de superfície.                                                                                                                          |
@@ -69,9 +69,9 @@ Marque conforme forem implementados **e passando**.
 | A4  | ∬ (x²+y²) no disco unitário = π/2                    | ✅           | ✅       |
 | A5  | ∬ x dA no triângulo 0≤y≤x≤1 = 1/3                    | ✅           | ✅       |
 | A6  | ∬ (x+y) entre y=x² e y=√x = 3/10                     | ✅           | ✅       |
-| A7  | Volume sob z=1−x²−y² no disco unitário = π/2         | ⬜           | ⬜       |
-| A8  | ∬ e^(−(x²+y²)) no disco de raio 2 = π(1−e⁻⁴)         | ⬜           | ⬜       |
-| A9  | ∬ x dA no disco unitário = 0                         | ⬜           | ⬜       |
+| A7  | Volume sob z=1−x²−y² no disco unitário = π/2         | ✅           | ✅       |
+| A8  | ∬ e^(−(x²+y²)) no disco de raio 2 = π(1−e⁻⁴)         | ✅           | ✅       |
+| A9  | ∬ x dA no disco unitário = 0                         | ✅           | ✅       |
 | T1  | ∭ xyz em [0,1]³ = 1/8                                | ⬜           | ⬜       |
 | T2  | Volume da esfera unitária = 4π/3                     | ⬜           | ⬜       |
 | T3  | Volume do cone (z de r a 1) = π/3                    | ⬜           | ⬜       |
@@ -496,3 +496,13 @@ Marque conforme forem implementados **e passando**.
 - **Não verificado:** prévia e alinhamento finais no navegador; o pedido de acesso do controle de computador expirou. As curvas são validadas em 129 pontos, logo cruzamentos entre amostras ainda podem escapar; a quadratura Gauss 64×64 e a ponderação 8×8 são aproximações, não certificações.
 - **Commit/push:** `4269767 feat: add double integral region calculator`, enviado a `origin/main`.
 - **Próximo passo:** F3-T3 — região polar com Jacobiano `r`, animação de setores e testes A4/A7/A8/A9.
+
+### Sessão 21
+
+- **Data:** 2026-10-27
+- **Tarefa:** concluir F3-T3 — região polar com Jacobiano `r`, setores animados e casos A7–A9.
+- **Feito:** a calculadora agora aceita raio mínimo/máximo e ângulo mínimo/máximo (incluindo `π`), prepara o domínio gráfico do setor e exibe a notação polar com `r dr dθ`. A prévia 2D revela a região como setores escalonados, respeitando a preferência por movimento reduzido. O Worker usa a quadratura polar como referência e mantém a soma de Riemann cartesiana como aproximação visual em prismas.
+- **Matemática e limites:** `integral2Polar` integra `f(r cos θ, r sin θ) · r`; aceita discos, setores e anéis, limitado a uma abertura angular de até `2π`. A4 = `π/2`, A7 = `π/2`, A8 = `π(1−e⁻⁴)`, A9 = `0`; também testados setor de 90°, Jacobiano, validação de raios/ângulos e uso no Worker. A quadratura de Gauss é referência numérica, não prova simbólica.
+- **Verificações executadas:** `pnpm test` — 157 testes em 18 arquivos, 0 falhas; `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram. Build: 1.545,25 kB JS principal (422,12 kB gzip), Worker 687,84 kB. Vite mantém aviso de bundle acima de 500 kB.
+- **Não verificado:** inspeção manual no navegador/WebGL; os prismas representam a região em uma malha cartesiana e a prévia setorial é a visualização animada da decomposição polar.
+- **Próximo passo:** F3-T4 — regiões definidas por desigualdades, com varredura/bissecção e fallback Monte Carlo com erro estatístico.

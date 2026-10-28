@@ -987,6 +987,38 @@ button {
   font-size: 10px;
 }
 
+.polar-region-preview .polar-sector {
+  fill: rgb(132 196 170 / 27%);
+  stroke: rgb(155 215 190 / 54%);
+  stroke-width: 0.65;
+  animation: polar-sector-form 850ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.polar-region-preview .polar-boundary {
+  fill: none;
+  stroke: #a5d4bc;
+  stroke-width: 1.4;
+}
+
+@keyframes polar-sector-form {
+  from {
+    opacity: 0;
+    transform: scale(0.84);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .polar-region-preview .polar-sector {
+    animation: none;
+  }
+}
+
 .integral-notation {
   margin: 0;
   padding: 0.45rem;

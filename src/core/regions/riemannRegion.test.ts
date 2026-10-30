@@ -65,6 +65,48 @@ describe('amostragem de regiões para prismas de Riemann', () => {
     expect(region.contains(0.2, 0.8)).toBe(false)
   })
 
+  it('usa interpolação linear dos limites após a troca de ordem', () => {
+    const region = createRegionFromExpressions(
+      {
+        kind: 'typeII',
+        lowerExpression: 'interpolado',
+        upperExpression: 'interpolado',
+        samplingMode: 'precise',
+        sampledBounds: {
+          outerBounds: [0, 1],
+          lowerValues: [0, 1],
+          upperValues: [1, 1],
+        },
+      },
+      [0, 1],
+      [0, 1],
+    )
+
+    expect(region.bounds(0.5)).toEqual([0.5, 1])
+    expect(region.contains(0.75, 0.5)).toBe(true)
+    expect(region.contains(0.25, 0.5)).toBe(false)
+  })
+
+  it('rejeita tabela de limites incompatível com o domínio da região', () => {
+    expect(() =>
+      createRegionFromExpressions(
+        {
+          kind: 'typeI',
+          lowerExpression: '0',
+          upperExpression: '1',
+          samplingMode: 'center',
+          sampledBounds: {
+            outerBounds: [-1, 1],
+            lowerValues: [0, 0],
+            upperValues: [1, 1],
+          },
+        },
+        [0, 1],
+        [0, 1],
+      ),
+    ).toThrow(/limites interpolados/)
+  })
+
   it.each([
     { kind: 'typeI', lowerExpression: 'y', upperExpression: 'x' },
     { kind: 'typeII', lowerExpression: 'a', upperExpression: '1' },

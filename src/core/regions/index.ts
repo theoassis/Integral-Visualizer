@@ -8,12 +8,18 @@ export {
   integral2TypeI,
   integral2TypeII,
 } from './regions'
-export { createRegionFromExpressions, riemann2OverRegion } from './riemannRegion'
+export {
+  changeRegionOrder,
+  createRegionFromExpressions,
+  riemann2OverRegion,
+} from './riemannRegion'
 export type {
   IntegrationRegion,
   RegionExpressionDefinition,
   RegionRiemannGrid,
   RegionSamplingMode,
+  RegionOrderConversionResult,
+  SampledRegionBounds,
 } from './riemannRegion'
 export type {
   InequalityRegion,

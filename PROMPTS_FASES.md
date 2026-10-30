@@ -207,6 +207,8 @@ um método de limites rigorosos. Inclua a tabela de erro por n.
 
 **Adendo F3-T4 (2026-10-27):** regiões implícitas são definidas como `g(x,y) ≤ 0` dentro de uma janela retangular finita. A referência principal deve varrer fatias, detectar mudanças de sinal e localizar fronteiras por bissecção; comparar refinamentos e informar que a diferença é estimativa. Se a fronteira exceder o limite de cruzamentos ou o refinamento divergir, usar Monte Carlo e apresentar erro padrão estatístico, sem chamá-lo de garantia/intervalo de confiança. A prévia e os prismas são aproximações por malha, não contornos exatos. Testar fronteiras múltiplas, oscilatórias e alinhadas à malha para expor aliasing.
 
+**Adendo F3-T5 (2026-10-29):** conversão I↔II é suportada somente para uma seção conectada em cada fatia amostrada. Detectar limites por varredura/bissecção e guardar fronteiras em uma tabela interpolada; validar tanto a integral atual quanto a área antes/depois. Se houver fatias vazias/desconexas, tabela inconsistente ou discrepância acima da tolerância, não converter e explicar o motivo. A interface deve marcar os limites como interpolados e informar que são aproximações finitas, não transformação simbólica exata.
+
 **Revisor confere:**
 
 - Triângulo 0 ≤ y ≤ x ≤ 1 com f = x: a integral iterada exibida deve ser ∫₀¹∫₀ˣ x dy dx = 1/3.

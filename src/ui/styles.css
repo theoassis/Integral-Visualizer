@@ -1055,6 +1055,23 @@ button {
   background: #b2d1ba;
 }
 
+.integral-convert-order-button {
+  min-height: 2.1rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #587468;
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  background: #202d29;
+  font-size: 0.68rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.integral-convert-order-button:hover {
+  border-color: var(--accent-emerald);
+  background: #2a3a36;
+}
+
 .riemann-expression,
 .riemann-help,
 .riemann-disclaimer {

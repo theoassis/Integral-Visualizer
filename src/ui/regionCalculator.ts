@@ -1,6 +1,11 @@
 import { compileExpression } from '../core/expr/codegen'
 import type { VisualizableFunction } from '../core/functions/types'
-import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
+import {
+  changeRegionOrder,
+  type RegionExpressionDefinition,
+  type RegionOrderConversionResult,
+  type SampledRegionBounds,
+} from '../core/regions/riemannRegion'
 import { parseDomainBound } from './domainBound'
 
 export type IntegralRegionKind =
@@ -21,6 +26,7 @@ export interface IntegralCalculatorDraft {
   readonly thetaMin: string
   readonly thetaMax: string
   readonly inequalityExpression: string
+  readonly sampledBounds?: SampledRegionBounds
 }
 
 export interface PreparedIntegral {
@@ -106,6 +112,32 @@ export function prepareIntegralCalculatorDraft(
     }
   }
 
+  if (draft.sampledBounds) {
+    if (draft.kind !== 'typeI' && draft.kind !== 'typeII') {
+      throw new RangeError('Limites interpolados só podem ser usados em tipo I ou II.')
+    }
+    const expectedOuter = draft.kind === 'typeI' ? [xMin, xMax] : [yMin, yMax]
+    if (
+      draft.sampledBounds.outerBounds[0] !== expectedOuter[0] ||
+      draft.sampledBounds.outerBounds[1] !== expectedOuter[1]
+    ) {
+      throw new RangeError(
+        'A janela externa mudou após a conversão; refaça a conversão da ordem.',
+      )
+    }
+    return {
+      expression: draft.expression.trim(),
+      domain: { x: { min: xMin, max: xMax }, y: { min: yMin, max: yMax } },
+      region: {
+        kind: draft.kind,
+        lowerExpression: draft.lowerExpression,
+        upperExpression: draft.upperExpression,
+        samplingMode: draft.samplingMode,
+        sampledBounds: draft.sampledBounds,
+      },
+    }
+  }
+
   const outerVariable = draft.kind === 'typeI' ? 'x' : 'y'
   const innerAxis = draft.kind === 'typeI' ? 'y' : 'x'
   const lower = compileExpression(draft.lowerExpression)
@@ -153,4 +185,44 @@ export function prepareIntegralCalculatorDraft(
       samplingMode: draft.samplingMode,
     },
   }
+}
+
+export interface ChangedIntegralOrder {
+  readonly draft: IntegralCalculatorDraft
+  readonly validation: RegionOrderConversionResult
+}
+
+export function changeIntegralCalculatorOrder(
+  draft: IntegralCalculatorDraft,
+): ChangedIntegralOrder {
+  const prepared = prepareIntegralCalculatorDraft(draft)
+  if (
+    !prepared.region ||
+    (prepared.region.kind !== 'typeI' && prepared.region.kind !== 'typeII')
+  ) {
+    throw new RangeError('A mudança de ordem exige uma região tipo I ou tipo II.')
+  }
+  const integrand = compileExpression(prepared.expression)
+  const parameters = Object.fromEntries(
+    integrand.variables
+      .filter((name) => name !== 'x' && name !== 'y')
+      .map((name) => [name, 1]),
+  )
+  const validation = changeRegionOrder(
+    prepared.region,
+    [prepared.domain.x.min, prepared.domain.x.max],
+    [prepared.domain.y.min, prepared.domain.y.max],
+    (x, y) => integrand.evaluate({ ...parameters, x, y }),
+  )
+  if (!validation.region.sampledBounds) {
+    throw new RangeError('A conversão não produziu limites interpolados utilizáveis.')
+  }
+  const nextDraft: IntegralCalculatorDraft = {
+    ...draft,
+    kind: validation.region.kind,
+    sampledBounds: validation.region.sampledBounds,
+    lowerExpression: validation.region.lowerExpression,
+    upperExpression: validation.region.upperExpression,
+  }
+  return { draft: nextDraft, validation }
 }

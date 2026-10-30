@@ -12,8 +12,14 @@ import type {
   TypeIRegion,
   TypeIIRegion,
 } from './regions'
+import { integral2TypeI, integral2TypeII } from './regions'
 
 export type RegionSamplingMode = 'center' | 'precise'
+export interface SampledRegionBounds {
+  readonly outerBounds: Interval
+  readonly lowerValues: readonly number[]
+  readonly upperValues: readonly number[]
+}
 export type IntegrationRegion =
   TypeIRegion | TypeIIRegion | PolarRegion | InequalityRegion
 
@@ -25,6 +31,7 @@ export interface RegionExpressionDefinition {
   readonly radiusBounds?: Interval
   readonly thetaBounds?: Interval
   readonly inequalityExpression?: string
+  readonly sampledBounds?: SampledRegionBounds
 }
 
 export interface RegionRiemannGrid {
@@ -69,6 +76,61 @@ export function createRegionFromExpressions(
     }
     return createPolarRegion(definition.radiusBounds, definition.thetaBounds)
   }
+  if (definition.sampledBounds) {
+    if (definition.kind !== 'typeI' && definition.kind !== 'typeII') {
+      throw new RangeError('Limites interpolados só são válidos em regiões tipo I/II.')
+    }
+    const { outerBounds, lowerValues, upperValues } = definition.sampledBounds
+    const expectedOuterBounds = definition.kind === 'typeI' ? xBounds : yBounds
+    const innerEnvelope = definition.kind === 'typeI' ? yBounds : xBounds
+    if (
+      outerBounds[0] >= outerBounds[1] ||
+      lowerValues.length < 2 ||
+      lowerValues.length > 4097 ||
+      lowerValues.length !== upperValues.length
+    ) {
+      throw new RangeError('A tabela de fronteiras interpoladas é inválida.')
+    }
+    if (
+      outerBounds[0] !== expectedOuterBounds[0] ||
+      outerBounds[1] !== expectedOuterBounds[1]
+    ) {
+      throw new RangeError(
+        'Os limites interpolados não correspondem ao domínio externo atual.',
+      )
+    }
+    if (
+      [...lowerValues, ...upperValues].some((value) => !Number.isFinite(value)) ||
+      lowerValues.some(
+        (value, index) =>
+          value > upperValues[index]! ||
+          value < innerEnvelope[0] ||
+          upperValues[index]! > innerEnvelope[1],
+      )
+    ) {
+      throw new RangeError(
+        'A tabela de fronteiras interpoladas não forma uma região válida.',
+      )
+    }
+    const boundsAt = (outer: number): Interval => {
+      const position =
+        ((outer - outerBounds[0]) / (outerBounds[1] - outerBounds[0])) *
+        (lowerValues.length - 1)
+      const index = Math.min(Math.max(Math.floor(position), 0), lowerValues.length - 2)
+      const fraction = Math.min(Math.max(position - index, 0), 1)
+      const lower =
+        lowerValues[index]! * (1 - fraction) + lowerValues[index + 1]! * fraction
+      const upper =
+        upperValues[index]! * (1 - fraction) + upperValues[index + 1]! * fraction
+      if (lower > upper) {
+        throw new RangeError(`Fronteiras interpoladas se cruzam em ${outer}.`)
+      }
+      return [lower, upper]
+    }
+    return definition.kind === 'typeI'
+      ? createTypeIRegion(outerBounds, boundsAt)
+      : createTypeIIRegion(outerBounds, boundsAt)
+  }
   const variable = definition.kind === 'typeI' ? 'x' : 'y'
   const compileBoundary = (source: string) => {
     const expression = compileExpression(source)
@@ -101,6 +163,166 @@ export function createRegionFromExpressions(
   return definition.kind === 'typeI'
     ? createTypeIRegion(xBounds, boundsAt)
     : createTypeIIRegion(yBounds, boundsAt)
+}
+
+export interface RegionOrderConversionResult {
+  readonly region: RegionExpressionDefinition
+  readonly sourceValue: number
+  readonly convertedValue: number
+  readonly absoluteDifference: number
+  readonly relativeDifference: number | null
+  readonly sourceArea: number
+  readonly convertedArea: number
+  readonly areaDifference: number
+  readonly samplesPerBoundary: number
+}
+
+/** Convert a connected, single-interval region by scanning slices and bisecting its boundary. */
+export function changeRegionOrder(
+  definition: RegionExpressionDefinition,
+  xBounds: Interval,
+  yBounds: Interval,
+  f: Integrand2D,
+  slices = 256,
+  scanSlices = 512,
+): RegionOrderConversionResult {
+  if (definition.kind !== 'typeI' && definition.kind !== 'typeII') {
+    throw new RangeError(
+      'A mudança de ordem automática está disponível para regiões tipo I/II.',
+    )
+  }
+  if (
+    !Number.isSafeInteger(slices) ||
+    slices < 16 ||
+    slices > 1024 ||
+    !Number.isSafeInteger(scanSlices) ||
+    scanSlices < 32 ||
+    scanSlices > 2048
+  ) {
+    throw new RangeError('Resolução de conversão fora dos limites suportados.')
+  }
+  const source = createRegionFromExpressions(definition, xBounds, yBounds)
+  if (source.kind !== 'typeI' && source.kind !== 'typeII') {
+    throw new RangeError('A conversão requer uma região tipo I ou tipo II válida.')
+  }
+  const toTypeI = definition.kind === 'typeII'
+  const outerBounds = toTypeI ? xBounds : yBounds
+  const innerBounds = toTypeI ? yBounds : xBounds
+  const lowerValues: number[] = []
+  const upperValues: number[] = []
+  const innerStep = (innerBounds[1] - innerBounds[0]) / scanSlices
+  const interpolateCrossing = (
+    outer: number,
+    outside: number,
+    inside: number,
+  ): number => {
+    let lo = outside
+    let hi = inside
+    const targetState = true
+    for (let iteration = 0; iteration < 48; iteration += 1) {
+      const middle = lo / 2 + hi / 2
+      const x = toTypeI ? outer : middle
+      const y = toTypeI ? middle : outer
+      if (source.contains(x, y) === targetState) hi = middle
+      else lo = middle
+    }
+    return lo / 2 + hi / 2
+  }
+
+  for (let index = 0; index <= slices; index += 1) {
+    const outer = outerBounds[0] + ((outerBounds[1] - outerBounds[0]) * index) / slices
+    const insideSamples: number[] = []
+    for (let innerIndex = 0; innerIndex <= scanSlices; innerIndex += 1) {
+      const inner = innerBounds[0] + innerIndex * innerStep
+      const x = toTypeI ? outer : inner
+      const y = toTypeI ? inner : outer
+      if (source.contains(x, y)) insideSamples.push(innerIndex)
+    }
+    if (insideSamples.length === 0) {
+      throw new RangeError(
+        `A conversão encontrou uma fatia vazia em ${toTypeI ? 'x' : 'y'}=${outer}; não há uma descrição segura por um único intervalo.`,
+      )
+    }
+    const first = insideSamples[0]!
+    const last = insideSamples.at(-1)!
+    if (
+      insideSamples.some(
+        (sample, sampleIndex) =>
+          sampleIndex > 0 && sample !== insideSamples[sampleIndex - 1]! + 1,
+      )
+    ) {
+      throw new RangeError(
+        `A conversão encontrou intervalos desconexos em ${toTypeI ? 'x' : 'y'}=${outer}; a região não pode ser expressa com um único par de limites.`,
+      )
+    }
+    const lower =
+      first === 0
+        ? innerBounds[0]
+        : interpolateCrossing(
+            outer,
+            innerBounds[0] + (first - 1) * innerStep,
+            innerBounds[0] + first * innerStep,
+          )
+    const upper =
+      last === scanSlices
+        ? innerBounds[1]
+        : interpolateCrossing(
+            outer,
+            innerBounds[0] + (last + 1) * innerStep,
+            innerBounds[0] + last * innerStep,
+          )
+    lowerValues.push(lower)
+    upperValues.push(upper)
+  }
+
+  const convertedKind = toTypeI ? 'typeI' : 'typeII'
+  const converted: RegionExpressionDefinition = {
+    kind: convertedKind,
+    lowerExpression: 'limite inferior interpolado',
+    upperExpression: 'limite superior interpolado',
+    samplingMode: definition.samplingMode,
+    sampledBounds: { outerBounds, lowerValues, upperValues },
+  }
+  const convertedRegion = createRegionFromExpressions(converted, xBounds, yBounds)
+  if (convertedRegion.kind !== 'typeI' && convertedRegion.kind !== 'typeII') {
+    throw new RangeError('A conversão não gerou uma região tipo I/II válida.')
+  }
+  const integrateRegion = (
+    integrand: Integrand2D,
+    target: TypeIRegion | TypeIIRegion,
+  ) =>
+    target.kind === 'typeI'
+      ? integral2TypeI(integrand, target, 64)
+      : integral2TypeII(integrand, target, 64)
+  const sourceValue = integrateRegion(f, source)
+  const convertedValue = integrateRegion(f, convertedRegion)
+  const sourceArea = integrateRegion(() => 1, source)
+  const convertedArea = integrateRegion(() => 1, convertedRegion)
+  const absoluteDifference = Math.abs(convertedValue - sourceValue)
+  const areaDifference = Math.abs(convertedArea - sourceArea)
+  const relativeDifference =
+    Math.abs(sourceValue) <= 64 * Number.EPSILON
+      ? null
+      : absoluteDifference / Math.abs(sourceValue)
+  if (
+    absoluteDifference > 1e-3 * Math.max(1, Math.abs(sourceValue)) ||
+    areaDifference > 1e-3 * Math.max(1, Math.abs(sourceArea))
+  ) {
+    throw new RangeError(
+      `A validação numérica não convergiu: integral ${sourceValue}→${convertedValue} (diferença ${absoluteDifference}); área ${sourceArea}→${convertedArea} (diferença ${areaDifference}). A ordem não foi alterada.`,
+    )
+  }
+  return {
+    region: converted,
+    sourceValue,
+    convertedValue,
+    absoluteDifference,
+    relativeDifference,
+    sourceArea,
+    convertedArea,
+    areaDifference,
+    samplesPerBoundary: slices + 1,
+  }
 }
 
 function assertBounds(bounds: Interval, name: string): void {

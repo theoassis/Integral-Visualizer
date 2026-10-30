@@ -33,7 +33,10 @@ import { MathText, MFn, MVar, MathBlock } from './MathView'
 import { parseDomainBound } from './domainBound'
 import RiemannPanel from './RiemannPanel'
 import RegionPreview from './RegionPreview'
-import { prepareIntegralCalculatorDraft } from './regionCalculator'
+import {
+  changeIntegralCalculatorOrder,
+  prepareIntegralCalculatorDraft,
+} from './regionCalculator'
 import type { IntegralCalculatorDraft, IntegralRegionKind } from './regionCalculator'
 import type { RegionExpressionDefinition } from '../core/regions/riemannRegion'
 import type { RiemannExample } from './riemannExamples'
@@ -174,6 +177,8 @@ export default function App() {
     inequalityExpression: 'x^2+y^2-1',
   })
   const [integralDraftError, setIntegralDraftError] = useState<string | null>(null)
+  const [regionOrderMessage, setRegionOrderMessage] = useState<string | null>(null)
+  const [regionOrderError, setRegionOrderError] = useState(false)
   const [integralBoundField, setIntegralBoundField] =
     useState<IntegralBoundField>('xMin')
   const [riemannRegion, setRiemannRegion] = useState<RegionExpressionDefinition | null>(
@@ -576,7 +581,39 @@ export default function App() {
   }
 
   const setIntegralBoundPreset = (value: string) => {
-    setIntegralDraft((current) => ({ ...current, [integralBoundField]: value }))
+    if (
+      integralBoundField === 'xMin' ||
+      integralBoundField === 'xMax' ||
+      integralBoundField === 'yMin' ||
+      integralBoundField === 'yMax'
+    ) {
+      setIntegralDomainBound(integralBoundField, value)
+    } else {
+      setIntegralDraft((current) => ({ ...current, [integralBoundField]: value }))
+    }
+  }
+
+  const setIntegralDomainBound = (
+    field: 'xMin' | 'xMax' | 'yMin' | 'yMax',
+    value: string,
+  ) => {
+    setIntegralDraft((current) => {
+      const { sampledBounds, ...base } = current
+      const next = { ...base, [field]: value }
+      if (!sampledBounds) return next
+      return {
+        ...next,
+        lowerExpression: current.kind === 'typeI' ? next.yMin : next.xMin,
+        upperExpression: current.kind === 'typeI' ? next.yMax : next.xMax,
+      }
+    })
+    if (integralDraft.sampledBounds) {
+      setRegionOrderMessage(
+        'A janela mudou; os limites convertidos foram descartados. Refaça a conversão da ordem.',
+      )
+      setRegionOrderError(true)
+    }
+    setIntegralDraftError(null)
   }
 
   const handleRestoreExample = () => {
@@ -827,6 +864,12 @@ export default function App() {
                                 ...integralDraft,
                                 expression: event.currentTarget.value,
                               })
+                              if (integralDraft.sampledBounds) {
+                                setRegionOrderMessage(
+                                  'O integrando mudou; use “Mudar ordem” novamente para revalidar a conversão numérica.',
+                                )
+                                setRegionOrderError(true)
+                              }
                               setIntegralDraftError(null)
                             }}
                             autoComplete="off"
@@ -841,37 +884,42 @@ export default function App() {
                             onChange={(event) => {
                               const kind = event.currentTarget
                                 .value as IntegralRegionKind
-                              setIntegralDraft((current) => ({
-                                ...current,
-                                kind,
-                                ...(kind !== 'rectangle' && current.kind === 'rectangle'
-                                  ? { xMin: '0', xMax: '1', yMin: '0', yMax: '1' }
-                                  : {}),
-                                lowerExpression:
-                                  kind === 'typeII'
-                                    ? 'y'
-                                    : kind === 'typeI'
-                                      ? '0'
-                                      : current.lowerExpression,
-                                upperExpression:
-                                  kind === 'typeII'
-                                    ? '1'
-                                    : kind === 'typeI'
-                                      ? 'x'
-                                      : current.upperExpression,
-                                ...(kind === 'polar'
-                                  ? {
-                                      rMin: '0',
-                                      rMax: '1',
-                                      thetaMin: '0',
-                                      thetaMax: '2*pi',
-                                    }
-                                  : {}),
-                                ...(kind === 'inequality'
-                                  ? { xMin: '-1', xMax: '1', yMin: '-1', yMax: '1' }
-                                  : {}),
-                              }))
+                              setIntegralDraft((current) => {
+                                const { sampledBounds, ...base } = current
+                                return {
+                                  ...(sampledBounds ? base : current),
+                                  kind,
+                                  ...(kind !== 'rectangle' &&
+                                  current.kind === 'rectangle'
+                                    ? { xMin: '0', xMax: '1', yMin: '0', yMax: '1' }
+                                    : {}),
+                                  lowerExpression:
+                                    kind === 'typeII'
+                                      ? 'y'
+                                      : kind === 'typeI'
+                                        ? '0'
+                                        : current.lowerExpression,
+                                  upperExpression:
+                                    kind === 'typeII'
+                                      ? '1'
+                                      : kind === 'typeI'
+                                        ? 'x'
+                                        : current.upperExpression,
+                                  ...(kind === 'polar'
+                                    ? {
+                                        rMin: '0',
+                                        rMax: '1',
+                                        thetaMin: '0',
+                                        thetaMax: '2*pi',
+                                      }
+                                    : {}),
+                                  ...(kind === 'inequality'
+                                    ? { xMin: '-1', xMax: '1', yMin: '-1', yMax: '1' }
+                                    : {}),
+                                }
+                              })
                               setIntegralDraftError(null)
+                              setRegionOrderMessage(null)
                             }}
                           >
                             <option value="rectangle">Retângulo</option>
@@ -950,10 +998,10 @@ export default function App() {
                                 value={integralDraft.xMin}
                                 onFocus={() => setIntegralBoundField('xMin')}
                                 onChange={(event) =>
-                                  setIntegralDraft({
-                                    ...integralDraft,
-                                    xMin: event.currentTarget.value,
-                                  })
+                                  setIntegralDomainBound(
+                                    'xMin',
+                                    event.currentTarget.value,
+                                  )
                                 }
                                 aria-label={
                                   integralDraft.kind === 'typeII'
@@ -972,10 +1020,10 @@ export default function App() {
                                 value={integralDraft.xMax}
                                 onFocus={() => setIntegralBoundField('xMax')}
                                 onChange={(event) =>
-                                  setIntegralDraft({
-                                    ...integralDraft,
-                                    xMax: event.currentTarget.value,
-                                  })
+                                  setIntegralDomainBound(
+                                    'xMax',
+                                    event.currentTarget.value,
+                                  )
                                 }
                                 aria-label={
                                   integralDraft.kind === 'typeII'
@@ -994,10 +1042,10 @@ export default function App() {
                                 value={integralDraft.yMin}
                                 onFocus={() => setIntegralBoundField('yMin')}
                                 onChange={(event) =>
-                                  setIntegralDraft({
-                                    ...integralDraft,
-                                    yMin: event.currentTarget.value,
-                                  })
+                                  setIntegralDomainBound(
+                                    'yMin',
+                                    event.currentTarget.value,
+                                  )
                                 }
                                 aria-label={
                                   integralDraft.kind === 'typeI'
@@ -1016,10 +1064,10 @@ export default function App() {
                                 value={integralDraft.yMax}
                                 onFocus={() => setIntegralBoundField('yMax')}
                                 onChange={(event) =>
-                                  setIntegralDraft({
-                                    ...integralDraft,
-                                    yMax: event.currentTarget.value,
-                                  })
+                                  setIntegralDomainBound(
+                                    'yMax',
+                                    event.currentTarget.value,
+                                  )
                                 }
                                 aria-label={
                                   integralDraft.kind === 'typeI'
@@ -1056,42 +1104,51 @@ export default function App() {
                           integralDraft.kind !== 'polar' &&
                           integralDraft.kind !== 'inequality' && (
                             <>
-                              <div className="integral-bounds-grid integral-curve-grid">
-                                <label>
-                                  {integralDraft.kind === 'typeI'
-                                    ? 'y inferior'
-                                    : 'x inferior'}
-                                  <input
-                                    value={integralDraft.lowerExpression}
-                                    onChange={(event) =>
-                                      setIntegralDraft({
-                                        ...integralDraft,
-                                        lowerExpression: event.currentTarget.value,
-                                      })
-                                    }
-                                    placeholder={
-                                      integralDraft.kind === 'typeI' ? '0' : 'y'
-                                    }
-                                  />
-                                </label>
-                                <label>
-                                  {integralDraft.kind === 'typeI'
-                                    ? 'y superior'
-                                    : 'x superior'}
-                                  <input
-                                    value={integralDraft.upperExpression}
-                                    onChange={(event) =>
-                                      setIntegralDraft({
-                                        ...integralDraft,
-                                        upperExpression: event.currentTarget.value,
-                                      })
-                                    }
-                                    placeholder={
-                                      integralDraft.kind === 'typeI' ? 'x' : '1'
-                                    }
-                                  />
-                                </label>
-                              </div>
+                              {integralDraft.sampledBounds ? (
+                                <p className="calculator-keyboard-hint" role="status">
+                                  Limites convertidos por interpolação linear em{' '}
+                                  {integralDraft.sampledBounds.lowerValues.length}{' '}
+                                  amostras. A mudança foi validada numericamente; edite
+                                  a janela para descartar a conversão.
+                                </p>
+                              ) : (
+                                <div className="integral-bounds-grid integral-curve-grid">
+                                  <label>
+                                    {integralDraft.kind === 'typeI'
+                                      ? 'y inferior'
+                                      : 'x inferior'}
+                                    <input
+                                      value={integralDraft.lowerExpression}
+                                      onChange={(event) =>
+                                        setIntegralDraft({
+                                          ...integralDraft,
+                                          lowerExpression: event.currentTarget.value,
+                                        })
+                                      }
+                                      placeholder={
+                                        integralDraft.kind === 'typeI' ? '0' : 'y'
+                                      }
+                                    />
+                                  </label>
+                                  <label>
+                                    {integralDraft.kind === 'typeI'
+                                      ? 'y superior'
+                                      : 'x superior'}
+                                    <input
+                                      value={integralDraft.upperExpression}
+                                      onChange={(event) =>
+                                        setIntegralDraft({
+                                          ...integralDraft,
+                                          upperExpression: event.currentTarget.value,
+                                        })
+                                      }
+                                      placeholder={
+                                        integralDraft.kind === 'typeI' ? 'x' : '1'
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                              )}
                               <label className="integral-calculator-field">
                                 Amostragem da região
                                 <select
@@ -1110,6 +1167,36 @@ export default function App() {
                                   </option>
                                 </select>
                               </label>
+                              <button
+                                className="integral-convert-order-button"
+                                type="button"
+                                onClick={() => {
+                                  try {
+                                    const result =
+                                      changeIntegralCalculatorOrder(integralDraft)
+                                    setIntegralDraft(result.draft)
+                                    const relativeDifference =
+                                      result.validation.relativeDifference === null
+                                        ? 'indefinida para integral próxima de zero'
+                                        : `${(result.validation.relativeDifference * 100).toPrecision(3)}%`
+                                    setRegionOrderMessage(
+                                      `Ordem alterada e validada: integral ${result.validation.sourceValue.toPrecision(7)} → ${result.validation.convertedValue.toPrecision(7)}; diferença relativa ${relativeDifference}. Área ${result.validation.sourceArea.toPrecision(7)} → ${result.validation.convertedArea.toPrecision(7)}. Limites interpolados em ${result.validation.samplesPerBoundary} pontos.`,
+                                    )
+                                    setRegionOrderError(false)
+                                    setIntegralDraftError(null)
+                                  } catch (error) {
+                                    setRegionOrderMessage(
+                                      error instanceof Error
+                                        ? error.message
+                                        : 'Não foi possível converter esta região com segurança.',
+                                    )
+                                    setRegionOrderError(true)
+                                  }
+                                }}
+                              >
+                                Mudar ordem · tipo{' '}
+                                {integralDraft.kind === 'typeI' ? 'I → II' : 'II → I'}
+                              </button>
                             </>
                           )}
                         {integralDraft.kind === 'inequality' && (
@@ -1168,8 +1255,16 @@ export default function App() {
                             <code>
                               ∫<sub>{integralDraft.yMin}</sub>
                               <sup>{integralDraft.yMax}</sup> ∫
-                              <sub>{integralDraft.lowerExpression}</sub>
-                              <sup>{integralDraft.upperExpression}</sup>{' '}
+                              <sub>
+                                {integralDraft.sampledBounds
+                                  ? 'ℓₙ(y)'
+                                  : integralDraft.lowerExpression}
+                              </sub>
+                              <sup>
+                                {integralDraft.sampledBounds
+                                  ? 'uₙ(y)'
+                                  : integralDraft.upperExpression}
+                              </sup>{' '}
                               {integralDraft.expression || 'f(x,y)'} dx dy
                             </code>
                           ) : (
@@ -1179,17 +1274,33 @@ export default function App() {
                               <sub>
                                 {integralDraft.kind === 'rectangle'
                                   ? integralDraft.yMin
-                                  : integralDraft.lowerExpression}
+                                  : integralDraft.sampledBounds
+                                    ? 'ℓₙ(x)'
+                                    : integralDraft.lowerExpression}
                               </sub>
                               <sup>
                                 {integralDraft.kind === 'rectangle'
                                   ? integralDraft.yMax
-                                  : integralDraft.upperExpression}
+                                  : integralDraft.sampledBounds
+                                    ? 'uₙ(x)'
+                                    : integralDraft.upperExpression}
                               </sup>{' '}
                               {integralDraft.expression || 'f(x,y)'} dy dx
                             </code>
                           )}
                         </p>
+                        {regionOrderMessage && (
+                          <p
+                            className={
+                              regionOrderError
+                                ? 'formula-error'
+                                : 'calculator-keyboard-hint'
+                            }
+                            role={regionOrderError ? 'alert' : 'status'}
+                          >
+                            {regionOrderMessage}
+                          </p>
+                        )}
                         {integralDraftError && (
                           <p className="formula-error" role="alert">
                             {integralDraftError}

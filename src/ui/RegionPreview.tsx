@@ -43,8 +43,8 @@ function polygonPoints(draft: IntegralCalculatorDraft): string {
   }
 
   const variable = draft.kind === 'typeI' ? 'x' : 'y'
-  const lower = compileExpression(draft.lowerExpression)
-  const upper = compileExpression(draft.upperExpression)
+  const lower = draft.sampledBounds ? null : compileExpression(draft.lowerExpression)
+  const upper = draft.sampledBounds ? null : compileExpression(draft.upperExpression)
   const outerMin = draft.kind === 'typeI' ? xMin : yMin
   const outerMax = draft.kind === 'typeI' ? xMax : yMax
   const upperPoints: Array<{ x: number; y: number }> = []
@@ -53,8 +53,27 @@ function polygonPoints(draft: IntegralCalculatorDraft): string {
   for (let index = 0; index <= SAMPLE_COUNT; index += 1) {
     const outer = outerMin + ((outerMax - outerMin) * index) / SAMPLE_COUNT
     const scope = { [variable]: outer }
-    const lowerValue = lower.evaluate(scope)
-    const upperValue = upper.evaluate(scope)
+    const sampled = draft.sampledBounds
+    const samplePosition = sampled
+      ? ((outer - sampled.outerBounds[0]) /
+          (sampled.outerBounds[1] - sampled.outerBounds[0])) *
+        (sampled.lowerValues.length - 1)
+      : 0
+    const sampleIndex = sampled
+      ? Math.min(
+          Math.max(Math.floor(samplePosition), 0),
+          sampled.lowerValues.length - 2,
+        )
+      : 0
+    const sampleFraction = Math.min(Math.max(samplePosition - sampleIndex, 0), 1)
+    const lowerValue = sampled
+      ? sampled.lowerValues[sampleIndex]! * (1 - sampleFraction) +
+        sampled.lowerValues[sampleIndex + 1]! * sampleFraction
+      : lower!.evaluate(scope)
+    const upperValue = sampled
+      ? sampled.upperValues[sampleIndex]! * (1 - sampleFraction) +
+        sampled.upperValues[sampleIndex + 1]! * sampleFraction
+      : upper!.evaluate(scope)
     if (
       !Number.isFinite(lowerValue) ||
       !Number.isFinite(upperValue) ||

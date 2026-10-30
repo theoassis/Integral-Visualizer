@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateRiemannIntegral } from './riemannCalculation'
+import { changeRegionOrder } from '../core/regions/riemannRegion'
 
 const request = {
   jobId: 19,
@@ -216,5 +217,31 @@ describe('riemann calculation worker', () => {
     expect(result.referenceMethod).toBe('monte-carlo')
     expect(result.referenceValue).toBeCloseTo(0.5, 2)
     expect(result.referenceErrorEstimate).toBeGreaterThan(0)
+  })
+
+  it('avalia a região tipo II interpolada no Worker após mudar a ordem', () => {
+    const result = changeRegionOrder(
+      {
+        kind: 'typeI',
+        lowerExpression: '0',
+        upperExpression: 'x',
+        samplingMode: 'precise',
+      },
+      [0, 1],
+      [0, 1],
+      (x) => x,
+    )
+    const integral = calculateRiemannIntegral({
+      ...request,
+      expression: 'x',
+      domain: { x: { min: 0, max: 1 }, y: { min: 0, max: 1 } },
+      region: result.region,
+      xSubdivisions: 24,
+      ySubdivisions: 24,
+    })
+
+    expect(integral.referenceValue).toBeCloseTo(1 / 3, 9)
+    expect(integral.value).toBeGreaterThan(0.3)
+    expect(integral.value).toBeLessThan(0.36)
   })
 })

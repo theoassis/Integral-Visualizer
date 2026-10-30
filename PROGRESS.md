@@ -7,10 +7,10 @@
 ## Resumo atual
 
 - **Fase atual:** 3 — Regiões gerais e polares (MVP)
-- **Tarefa atual:** F3-T4 concluída; F3-T5 (mudança da ordem de integração) é a próxima.
-- **Última sessão:** 2026-10-27 — calculadora de regiões por desigualdades, varredura com bissecção e fallback Monte Carlo.
-- **Estado dos testes:** `pnpm test` — 172 testes passando (19 arquivos, 0 falhas).
-- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint` e `pnpm format:check` passaram; chunk inicial 1.549,07 kB (422,97 kB gzip) e Worker 691,39 kB. Testes: 172/172.
+- **Tarefa atual:** F3-T5 concluída; F3-T6 (grandezas físicas sobre regiões) é a próxima.
+- **Última sessão:** 2026-10-29 — conversão tipo I ↔ tipo II com fronteiras interpoladas e validação cruzada.
+- **Estado dos testes:** `pnpm test` — 183 testes passando (20 arquivos, 0 falhas).
+- **Estado do build/tipos:** `pnpm typecheck`, `pnpm build`, `pnpm lint` e `pnpm format:check` passaram; chunk inicial 1.560,42 kB (426,67 kB gzip) e Worker 692,36 kB. Testes: 183/183.
 
 ## Painel de fases
 
@@ -52,7 +52,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ concluída · ❌ reprova
 | F3-T2 | Prévia da região e prismas restritos                       | ✅     | Calculadora ∬ com retângulo/tipo I/tipo II, prévia 2D, modos “centro dentro” e área ponderada 8×8; prismas fora da região omitidos e bases parciais escaladas pela fração estimada.                                      |
 | F3-T3 | Região polar e Jacobiano r                                 | ✅     | Calculadora aceita limites radiais e angulares; quadratura de referência aplica `r`, prévia anima setores e Worker mantém prismas aproximados. A4 e A7–A9 passam.                                                        |
 | F3-T4 | Regiões por desigualdades                                  | ✅     | Calculadora aceita `g(x,y)≤0`; prévia amostrada e malha mascarada. Referência usa varredura vertical, bissecção e quadratura interna; fronteiras complexas caem para Monte Carlo com erro padrão. 15 testes adicionados. |
-| F3-T5 | Mudança da ordem de integração                             | ⬜     | Pendente: conversão I↔II com validação numérica.                                                                                                                                                                         |
+| F3-T5 | Mudança da ordem de integração                             | ✅     | Botão troca tipo I/II por varredura e bissecção, cria limites por interpolação linear e valida a integral atual e a área antes/depois; recusa seções vazias/desconexas ou discrepância > 10⁻³. 11 testes adicionados.    |
 | F3-T6 | Grandezas físicas sobre regiões                            | ⬜     | Pendente: massa, centro de massa, momentos, valor médio e área de superfície.                                                                                                                                            |
 | F3-T7 | Exibição da integral iterada em notação matemática         | ⬜     | A calculadora mostra limites e expressão em notação textual; a montagem em LaTeX com limites substituídos continua pendente como tarefa formal.                                                                          |
 
@@ -96,6 +96,7 @@ Marque conforme forem implementados **e passando**.
 | 1   | 2026-10-15 | Mínimos e máximos observados em uma grade finita não certificam somas inferior/superior nem garantem que cerquem a integral exata. Até existir um método certificado, rotular como estimativas amostradas e explicar essa limitação; só afirmar `inferior ≤ exato ≤ superior` quando a implementação provar os limites.                                               | Plano, seção 10.3; tarefas F2-T3 e guia de revisão.                                   | A interface informa que são estimativas amostradas e sem garantia. A revisão formal da Fase 2 não foi registrada; o usuário autorizou avançar para a Fase 3 em 2026-10-26.           |
 | 2   | 2026-10-26 | A F3-T2 aceita limites de curva após checagem em 129 pontos e usa subamostragem 8×8 no modo ponderado. Uma curva pode cruzar ou sair da janela entre pontos de checagem; a fração de área e a referência numérica não são certificadas.                                                                                                                               | `src/ui/regionCalculator.ts`, `src/core/regions/riemannRegion.ts`, Worker de Riemann. | Limitação explícita na UI e no progresso; testar mais funções e revisar comportamento antes do fechamento matemático da Fase 3.                                                      |
 | 3   | 2026-10-27 | F3-T4 verifica finitude da desigualdade em uma grade 33×33; a referência varre fatias com resolução y 256→512, bissecta até 40 iterações e estima a convergência pela diferença de refinamento. Características estreitas ou oscilações que escapem às duas grades podem passar sem detecção. O fallback Monte Carlo informa um erro padrão, sem intervalo garantido. | `src/ui/regionCalculator.ts`, `src/core/regions/regions.ts`, Worker de Riemann.       | Informado na UI e nesta matriz. Fallback também é acionado com mais de 24 cruzamentos por fatia ou diferença de refinamento acima de 2%; ampliar testes com fronteiras adversariais. |
+| 4   | 2026-10-29 | F3-T5 converte apenas regiões cuja seção transversal em cada fatia amostrada forma um único intervalo. Limites convertidos são interpolações lineares em 257 amostras; fatias usam busca em 512 posições e bissecção em 48 iterações. Valida integral e área por Gauss 64 e recusa diferenças absolutas > 10⁻³·max(1,                                                 | valor                                                                                 | ). Regiões com lóbulos estreitos entre amostras ainda podem ser aproximadas de forma inadequada.                                                                                     | `src/core/regions/riemannRegion.ts`, `src/ui/regionCalculator.ts`. | Notação identifica limites interpolados e a UI mostra os dois valores comparados; editar janela descarta a conversão. Refaça a conversão depois de alterar o integrando para atualizar a validação. |
 
 ## Ambiguidades e riscos encontrados na leitura inicial
 
@@ -508,6 +509,18 @@ Marque conforme forem implementados **e passando**.
 - **Não verificado:** inspeção manual da nova tela no navegador/WebGL.
 - **Commit F3-T4:** fecha esta sessão em commit separado do anterior de F3-T3.
 - **Próximo passo:** F3-T5 — mudar ordem de integração tipo I ↔ tipo II com validação cruzada e aviso quando a conversão não for segura.
+
+### Sessão 23
+
+- **Data:** 2026-10-29
+- **Tarefa:** concluir F3-T5 — mudança de ordem tipo I ↔ tipo II.
+- **Feito:** botão na calculadora converte regiões conectadas de tipo I para II e vice-versa. A conversão varre 257 fatias, procura os limites internos em 512 posições, refina as raízes por 48 iterações e representa as fronteiras detectadas por interpolação linear. A prévia, notação e Worker usam a mesma tabela interpolada. A UI mostra o valor da integral antes/depois, diferença relativa (ou indefinida perto de zero), área antes/depois e resolução da tabela.
+- **Validação e recusa segura:** compara integral do integrando atual e área da região com quadratura de Gauss 64; se qualquer diferença exceder `10⁻³·max(1,|referência|)`, não altera a ordem. A conversão também é recusada para fatias vazias/desconexas, região polar/implícita, janela alterada após converter ou tabela inconsistente. Após editar o integrando, a UI pede nova validação.
+- **Testes:** `pnpm test` — 183 testes em 20 arquivos, 0 falhas. Cobertura de conversão tipo I→II e II→I, triângulo A5, região A6 entre parábolas, região desconexa, integral nula, interpolação/validação do factory, calculadora e fluxo completo no Worker.
+- **Verificações:** `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm format:check` e `git diff --check` passaram. Build: 1.560,42 kB JS principal (426,67 kB gzip), Worker 692,36 kB.
+- **Limitações:** a conversão é geométrica aproximada; uma feição mais estreita que a malha de busca pode não ser detectada. A comparação numérica aumenta a confiança, mas não constitui prova simbólica. Inspeção manual da UI não executada nesta sessão.
+- **Git:** nenhuma alteração desta sessão foi commitada, conforme pedido do usuário. Os commits locais anteriores continuam separados.
+- **Próximo passo:** F3-T6 — massa, centro de massa, momentos de inércia, valor médio e área de superfície.
 
 ### Sessão 21
 

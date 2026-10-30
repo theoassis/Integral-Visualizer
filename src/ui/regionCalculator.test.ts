@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  changeIntegralCalculatorOrder,
   prepareIntegralCalculatorDraft,
   type IntegralCalculatorDraft,
 } from './regionCalculator'
@@ -118,5 +119,37 @@ describe('construtor da integral dupla', () => {
         inequalityExpression: '',
       }),
     ).toThrow()
+  })
+
+  it('muda a ordem do triângulo e inclui os valores comparados na validação', () => {
+    const changed = changeIntegralCalculatorOrder({
+      ...baseDraft,
+      expression: 'x',
+      kind: 'typeI',
+      lowerExpression: '0',
+      upperExpression: 'x',
+    })
+
+    expect(changed.draft.kind).toBe('typeII')
+    expect(changed.draft.sampledBounds?.lowerValues).toHaveLength(257)
+    expect(changed.validation.sourceValue).toBeCloseTo(1 / 3, 12)
+    expect(changed.validation.convertedValue).toBeCloseTo(1 / 3, 10)
+    expect(prepareIntegralCalculatorDraft(changed.draft).region?.sampledBounds).toEqual(
+      changed.draft.sampledBounds,
+    )
+    expect(() =>
+      prepareIntegralCalculatorDraft({ ...changed.draft, yMax: '2' }),
+    ).toThrow(/janela externa mudou/)
+  })
+
+  it('recusa mudança de ordem com fatias desconexas sem alterar o draft', () => {
+    const draft = {
+      ...baseDraft,
+      kind: 'typeI' as const,
+      lowerExpression: '0',
+      upperExpression: 'sin(4*pi*x)^2',
+    }
+    expect(() => changeIntegralCalculatorOrder(draft)).toThrow(/intervalos desconexos/)
+    expect(draft.kind).toBe('typeI')
   })
 })
